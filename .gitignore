@@ -1,0 +1,28 @@
+# Python environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Build and test output
+build/
+dist/
+recordings/
+*.mcap
+*.mcap.partial
+.coverage
+.coverage.*
+htmlcov/
+
+# Godot editor cache and native output
+.godot/
+godot/bin/
+
+# Local settings
+.env
+.env.*
+!.env.example
+.DS_Store

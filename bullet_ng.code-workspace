@@ -1,0 +1,28 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../projects/bullet_drone"
+		},
+		{
+			"path": "../../projects/bullet_render"
+		},
+		{
+			"path": "../../projects/bullet_app"
+		},
+		{
+			"path": "../../projects/beta_client"
+		},
+		{
+			"path": "../../projects/bullet_view"
+		},
+		{
+			"path": "../../projects/bullet_perception"
+		},
+		{
+			"path": "../../projects/los_tracking"
+		}
+	]
+}

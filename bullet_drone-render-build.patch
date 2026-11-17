@@ -1,0 +1,83 @@
+diff --git a/external_render/build.py b/external_render/build.py
+--- a/external_render/build.py
++++ b/external_render/build.py
+@@ -3,6 +3,7 @@
+ import platform
+ import shutil
+ import subprocess
++import sys
+ import tempfile
+ 
+ 
+@@ -42,7 +43,8 @@
+             raise RuntimeError(f'Install {command} before building the renderer')
+     if not TERRAIN_SOURCE.is_file():
+         raise FileNotFoundError(f'Missing project terrain: {TERRAIN_SOURCE}')
+-    subprocess.run(['cmake', '--preset', 'debug'], cwd=RENDER_SOURCE, check=True)
++    subprocess.run(['cmake', '--preset', 'debug', f'-DPython3_EXECUTABLE={sys.executable}'],
++                   cwd=RENDER_SOURCE, check=True)
+     subprocess.run(['cmake', '--build', '--preset', 'debug'], cwd=RENDER_SOURCE, check=True)
+     DISTRIBUTION.parent.mkdir(parents=True, exist_ok=True)
+     with tempfile.TemporaryDirectory(prefix='export-', dir=DISTRIBUTION.parent) as work:
+@@ -59,7 +61,7 @@
+         shutil.copy2(TERRAIN_SOURCE, stage / 'terrain/terrain_heightmap.f32')
+         script = stage / 'main.gd'
+         source = script.read_text()
+-        old_path = 'res://../../bullet_drone/custom/terrain/terrain_heightmap.f32'
++        old_path = 'res://../../terrain/terrain_heightmap.f32'
+         if old_path not in source:
+             raise RuntimeError('Renderer terrain path changed; update the export recipe')
+         script.write_text(source.replace(old_path, 'res://terrain/terrain_heightmap.f32'))
+@@ -79,10 +81,13 @@
+         launcher = output / 'render'
+         launcher.write_text(LAUNCHER)
+         launcher.chmod(0o755)
++        revision = (subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=RENDER_SOURCE,
++                                   capture_output=True, text=True, check=False)
++                    if shutil.which('git') else None)
++        source_revision = revision.stdout.strip() if revision and revision.returncode == 0 else 'unknown'
+         (output / 'BUILD.txt').write_text(
+             subprocess.check_output(['godot', '--version'], text=True)
+-            + 'Renderer source commit: '
+-            + subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=RENDER_SOURCE, text=True)
++            + f'Renderer source commit: {source_revision}\n'
+             + 'Requires Ubuntu 24.04 x86_64 system C/C++ runtimes and OpenGL drivers.\n')
+         # Only replace generated output after the complete export has succeeded.
+         if DISTRIBUTION.exists():
+diff --git a/plan/README.md b/plan/README.md
+--- a/plan/README.md
++++ b/plan/README.md
+@@ -2,6 +2,7 @@
+ 
+ | Plan | Description | Status | Implementation commit |
+ | --- | --- | --- | --- |
++| [0146: Renderer native contracts](0146-renderer-native-contracts.md) | Self-contained native headers and current packaged-viewer pose, camera, and image protocol. | Prepared; destination runtime verification pending | Pending |
+ | [0145: Simulation launcher](0145-infrastructure-launcher.md) | Persistent PyBullet FDM loop with optional process-only SITL and rendering; external controller owns MSP/MAVLink. | Implemented; CLI checks and SITL Ctrl-C cleanup verified | Pending |
+ | [0117: merge Iris example task](0117-merge-iris-example-task.md) | Move PX4 Iris into the shared example picker. | Implemented and verified; uncommitted | Pending |
+ | [0116: example task color](0116-example-task-color.md) | Add a green play icon to Bullet: Run example. | Implemented and verified; uncommitted | Pending |
+diff --git a/plan/0146-renderer-native-contracts.md b/plan/0146-renderer-native-contracts.md
+new file mode 100644
+--- /dev/null
++++ b/plan/0146-renderer-native-contracts.md
+@@ -0,0 +1,21 @@
++# 0146: Renderer native contracts
++
++## Goal
++Build the packaged Godot viewer without a sibling `bullet_msgs` checkout and keep its pose, camera, and image transport compatible with the protocol packages in `bullet_drone/libs`.
++
++## Implementation steps
++- Put the renderer's C++ transport headers in its own source tree and remove CMake's `../bullet_msgs/include` path.
++- Add packaged-viewer handling for current pose and camera-info telemetry and publish version-3 image descriptors with the pose header and drone ID.
++- Pass the active Python interpreter from `external_render/build.py` to CMake, avoiding the removed shared environment path. Allow a source export without Git metadata to record an unknown source revision, and stage the terrain path used by the separated renderer checkout.
++
++## Interfaces
++The Godot adapter's `start` method accepts an optional `viewer_only` Boolean. Existing one-argument editor calls retain their behavior. The image notification keeps the existing topic and SHM layout and adds version-3 `header` and `drone_id` fields for packaged-viewer captures.
++
++## Verification
++Native CMake build and a C++-to-Python version-3 descriptor check pass in a writable mirror. The packaging script reaches Godot export; export and a rendered flight remain pending because matching Linux export templates are not installed in this environment.
++
++## Scope and defaults
++The packaged viewer is the target. Legacy editor controls, Python tools, recorder schemas, and the renderer's Python `bullet-msgs` dependency remain for a separate migration.
++
++## Status
++Prepared; destination apply and runtime verification pending. Implementation commit: Pending.

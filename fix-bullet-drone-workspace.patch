@@ -1,0 +1,16 @@
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -34,3 +34,5 @@
+ bullet-simulation-protocol = { workspace = true }
+ bullet-image-transport = { workspace = true }
+ 
++[tool.uv.workspace]
++members = ["libs/*"]
+--- a/libs/bullet_image_transport/pyproject.toml
++++ b/libs/bullet_image_transport/pyproject.toml
+@@ -10,4 +10,4 @@
+ dependencies = ["bullet-simulation-protocol"]
+ 
+ [tool.uv.sources]
+-bullet-simulation-protocol = { path = "../bullet_simulation_protocol", editable = true }
++bullet-simulation-protocol = { workspace = true }

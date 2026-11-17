@@ -1,0 +1,661 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -24,7 +24,7 @@
+ pkg_check_modules(ZMQ REQUIRED IMPORTED_TARGET libzmq>=4.3.5)
+ find_package(Threads REQUIRED)
+ add_library(zmq_camera SHARED src/native/zmq_camera_adapter.cpp src/native/register_types.cpp)
+-target_include_directories(zmq_camera PRIVATE "${CMAKE_SOURCE_DIR}/../bullet_msgs/include")
++target_include_directories(zmq_camera PRIVATE "${CMAKE_SOURCE_DIR}/src/native/include")
+ target_link_libraries(zmq_camera PRIVATE godot-cpp PkgConfig::ZMQ Threads::Threads)
+ target_compile_options(zmq_camera PRIVATE -Wall -Wextra -Wpedantic)
+ set_target_properties(zmq_camera PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/godot/bin")
+diff --git a/CMakePresets.json b/CMakePresets.json
+--- a/CMakePresets.json
++++ b/CMakePresets.json
+@@ -7,8 +7,7 @@
+       "binaryDir": "${sourceDir}/build/debug",
+       "cacheVariables": {
+         "CMAKE_BUILD_TYPE": "Debug",
+-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+-        "Python3_EXECUTABLE": "${sourceDir}/../.venv/bin/python3"
++        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+       }
+     }
+   ],
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -7,7 +7,9 @@
+ Godot renders a landscape and forward camera from `bullet_drone` ground-truth
+ poses. The native C++ adapter receives JSON telemetry over loopback ZMQ TCP and
+ publishes image descriptors over TCP, with RGB8 pixels in POSIX shared memory.
+-Sibling `bullet_msgs` owns the shared schemas, wire contract and SHM reader.
++The native adapter owns its C++ transport headers under `src/native/include`.
++The packaged viewer exchanges pose, camera and image messages with the Python
++libraries in `bullet_drone/libs` without importing Python at runtime.
+ Sibling `bullet_app` provides the live camera/bounding-box preview with `--debug`.
+ 
+ A parked red delivery truck sits **50 m ahead of the physics origin** (horizontal
+@@ -143,14 +145,12 @@
+ the extension into Godot; a one-second frame delay avoids Godot's cold-import
+ shutdown race (upstream issue #111048). Generated files remain ignored.
+ 
+-Keep the sibling `bullet_msgs` checkout alongside this repository. Prepare consumers:
++The native build no longer needs a sibling `bullet_msgs` checkout. Legacy Python
++tools and recorder profiles in this repository still use that package. Prepare
++the simulation consumer:
+ 
+ ```bash
+ cd ../bullet_drone
+-uv sync --locked --all-packages --all-extras --all-groups
+-cd ../mcap_bagger
+-uv sync --locked --all-packages --all-extras --all-groups
+-cd ../bullet_app
+ uv sync --locked --all-packages --all-extras --all-groups
+ ```
+ 
+diff --git a/godot/main.gd b/godot/main.gd
+--- a/godot/main.gd
++++ b/godot/main.gd
+@@ -97,7 +97,7 @@
+ 	wind_panel.adapter = adapter
+ 	if not capture_only:
+ 		var transport_path := ProjectSettings.globalize_path(transport_config_path)
+-		if not adapter.start(transport_path):
++		if not adapter.start(transport_path, viewer_only):
+ 			get_tree().quit(1)
+ 			return
+ 	print("Godot ready with native ZeroMQ camera adapter")
+diff --git a/src/native/zmq_camera_adapter.cpp b/src/native/zmq_camera_adapter.cpp
+--- a/src/native/zmq_camera_adapter.cpp
++++ b/src/native/zmq_camera_adapter.cpp
+@@ -1,8 +1,8 @@
+ #include "zmq_camera_adapter.h"
+-#include <bullet_msgs/shm.hpp>
+-#include <bullet_msgs/control.hpp>
+-#include <bullet_msgs/spawn.hpp>
+-#include <bullet_msgs/wind.hpp>
++#include <bullet_render/shm.hpp>
++#include <bullet_render/control.hpp>
++#include <bullet_render/spawn.hpp>
++#include <bullet_render/wind.hpp>
+ #include <deque>
+ #include <godot_cpp/classes/json.hpp>
+ #include <godot_cpp/core/class_db.hpp>
+@@ -32,6 +32,8 @@
+ constexpr int TELEMETRY_HWM = 64;
+ constexpr int IMAGE_HWM = 8;
+ constexpr double STALE_SECONDS = 1.0;
++constexpr uint64_t NANOSECONDS_PER_SECOND = 1000000000ULL;
++constexpr uint64_t MAX_TIMESTAMP_SECONDS = UINT64_MAX / NANOSECONDS_PER_SECOND;
+ 
+ bool number(const Variant &v, double low, double high, bool integer = false) {
+     if (v.get_type() != Variant::INT && v.get_type() != Variant::FLOAT) return false;
+@@ -74,12 +76,12 @@
+ bool spawn_position(const Variant &v) {
+     if (!vector(v, 3, 500)) return false;
+     const Array p = v;
+-    return number(p[0], -bullet_msgs::SPAWN_HORIZONTAL_LIMIT_M, bullet_msgs::SPAWN_HORIZONTAL_LIMIT_M) &&
+-        number(p[1], -bullet_msgs::SPAWN_HORIZONTAL_LIMIT_M, bullet_msgs::SPAWN_HORIZONTAL_LIMIT_M) &&
+-        number(p[2], bullet_msgs::SPAWN_MIN_ALTITUDE_M, bullet_msgs::SPAWN_MAX_ALTITUDE_M);
++    return number(p[0], -bullet_render::SPAWN_HORIZONTAL_LIMIT_M, bullet_render::SPAWN_HORIZONTAL_LIMIT_M) &&
++        number(p[1], -bullet_render::SPAWN_HORIZONTAL_LIMIT_M, bullet_render::SPAWN_HORIZONTAL_LIMIT_M) &&
++        number(p[2], bullet_render::SPAWN_MIN_ALTITUDE_M, bullet_render::SPAWN_MAX_ALTITUDE_M);
+ }
+ bool valid_takeoff_height(const Variant &v) {
+-    return number(v, bullet_msgs::MIN_TAKEOFF_HEIGHT_M, bullet_msgs::MAX_TAKEOFF_HEIGHT_M);
++    return number(v, bullet_render::MIN_TAKEOFF_HEIGHT_M, bullet_render::MAX_TAKEOFF_HEIGHT_M);
+ }
+ bool valid_spawn_state(const Dictionary &d) {
+     Dictionary legacy = d.duplicate();
+@@ -206,6 +208,43 @@
+     for (int i = 0; i < 4; ++i) norm += double(q[i]) * double(q[i]);
+     return norm >= 1e-24;
+ }
++bool valid_viewer_pose(const Dictionary &pose) {
++    if (!shape(pose, {"header", "drone_id", "position_m", "orientation_xyzw"}) ||
++        pose["header"].get_type() != Variant::DICTIONARY || !text(pose["drone_id"]) ||
++        !vector(pose["position_m"], 3, 1e9) || !vector(pose["orientation_xyzw"], 4, 1)) return false;
++    const Dictionary header = pose["header"];
++    if (!shape(header, {"fid", "time_stamp"}) || !number(header["fid"], 0, MAX_SEQUENCE, true) ||
++        header["time_stamp"].get_type() != Variant::DICTIONARY) return false;
++    const Dictionary stamp = header["time_stamp"];
++    if (!shape(stamp, {"sec", "nanosec"}) ||
++        !number(stamp["sec"], 0, static_cast<double>(MAX_TIMESTAMP_SECONDS), true) ||
++        !number(stamp["nanosec"], 0, NANOSECONDS_PER_SECOND - 1, true)) return false;
++    const Array q = pose["orientation_xyzw"];
++    double norm = 0;
++    for (int i = 0; i < 4; ++i) norm += double(q[i]) * double(q[i]);
++    return std::abs(norm - 1.0) <= 0.002;
++}
++bool viewer_camera(const Dictionary &message, Dictionary &camera) {
++    if (!shape(message, {"schema_version", "stream_id", "capture_fps_hz", "camera_info"}) ||
++        !number(message["schema_version"], 1, 1, true) || !text(message["stream_id"]) ||
++        !number(message["capture_fps_hz"], 0, 240) || double(message["capture_fps_hz"]) <= 0 ||
++        message["camera_info"].get_type() != Variant::DICTIONARY) return false;
++    const Dictionary info = message["camera_info"];
++    if (!info.has("width") || !info.has("height") || !info.has("k") ||
++        !number(info["width"], 1, 8192, true) || !number(info["height"], 1, 8192, true) ||
++        info["k"].get_type() != Variant::ARRAY) return false;
++    const int64_t width = info["width"], height = info["height"];
++    if (width * height * 3 > MAX_IMAGE_BYTES) return false;
++    const Array k = info["k"];
++    if (k.size() != 9 || !number(k[0], 0, 1e9) || double(k[0]) <= 0 ||
++        !number(k[4], double(k[0]), double(k[0])) ||
++        !number(k[2], width / 2.0, width / 2.0) ||
++        !number(k[5], height / 2.0, height / 2.0)) return false;
++    camera["width_px"] = width;
++    camera["height_px"] = height;
++    camera["fov_x_deg"] = 2.0 * std::atan(width / (2.0 * double(k[0]))) * 180.0 / std::acos(-1.0);
++    return true;
++}
+ Dictionary parse(const std::string &raw) {
+     Ref<JSON> json;
+     json.instantiate();
+@@ -216,6 +255,7 @@
+ }
+ 
+ struct ZmqCameraAdapter::Impl {
++    bool viewer_only = false;
+     std::mutex mutex;
+     std::string config_slot, profile_slot, pose_slot, collision_pose_slot, state_slot, collision_outgoing, spawn_slot, spawn_outgoing, wind_slot, wind_outgoing;
+     Clock::time_point state_received{}, valid_state_received{}, spawn_received{}, valid_spawn_received{}, wind_received{}, valid_wind_received{};
+@@ -231,7 +271,7 @@
+     String collision_episode, collision_stream;
+     int64_t frame_bytes = 0, busy_slots = 0, publication_drops = 0;
+     double source_age_ms = -1.0;
+-    bullet_msgs::FrameWriter images;
++    bullet_render::FrameWriter images;
+     bool running = false;
+     String error, capture_stream;
+     Dictionary config, camera, profile;
+@@ -253,12 +293,13 @@
+                 zmq_setsockopt(socket, ZMQ_RCVHWM, &TELEMETRY_HWM, sizeof(TELEMETRY_HWM)) ||
+                 zmq_setsockopt(socket, ZMQ_MAXMSGSIZE, &max_size, sizeof(max_size)) ||
+                 zmq_setsockopt(socket, ZMQ_SUBSCRIBE, "render/drone_1/", 15) ||
+-                zmq_setsockopt(socket, ZMQ_SUBSCRIBE, bullet_msgs::WIND_STATE_TOPIC, sizeof(bullet_msgs::WIND_STATE_TOPIC) - 1) ||
+-                zmq_setsockopt(socket, ZMQ_SUBSCRIBE, bullet_msgs::SPAWN_STATE_TOPIC, sizeof(bullet_msgs::SPAWN_STATE_TOPIC) - 1) ||
+-                zmq_setsockopt(socket, ZMQ_SUBSCRIBE, bullet_msgs::STATE_TOPIC, sizeof(bullet_msgs::STATE_TOPIC) - 1) ||
++                (viewer_only && zmq_setsockopt(socket, ZMQ_SUBSCRIBE, "camera/front/camera_info", 24)) ||
++                zmq_setsockopt(socket, ZMQ_SUBSCRIBE, bullet_render::WIND_STATE_TOPIC, sizeof(bullet_render::WIND_STATE_TOPIC) - 1) ||
++                zmq_setsockopt(socket, ZMQ_SUBSCRIBE, bullet_render::SPAWN_STATE_TOPIC, sizeof(bullet_render::SPAWN_STATE_TOPIC) - 1) ||
++                zmq_setsockopt(socket, ZMQ_SUBSCRIBE, bullet_render::STATE_TOPIC, sizeof(bullet_render::STATE_TOPIC) - 1) ||
+                 zmq_connect(socket, endpoint.c_str())) throw std::runtime_error(zmq_strerror(zmq_errno()));
+             control = zmq_socket(context, ZMQ_PUB);
+-            const int hwm = bullet_msgs::CONTROL_QUEUE_SIZE;
++            const int hwm = bullet_render::CONTROL_QUEUE_SIZE;
+             if (!control || zmq_setsockopt(control, ZMQ_LINGER, &linger, sizeof(linger)) ||
+                 zmq_setsockopt(control, ZMQ_SNDHWM, &hwm, sizeof(hwm)) ||
+                 zmq_bind(control, control_endpoint.c_str())) throw std::runtime_error(zmq_strerror(zmq_errno()));
+@@ -268,7 +309,7 @@
+                 const auto payload = "{\"schema_version\":1,\"controller_id\":\"" + controller_id +
+                     "\",\"sequence\":" + std::to_string(++control_sequence) + ",\"action\":\"" + action +
+                     "\",\"issued_ms\":" + std::to_string(issued_ms) + "}";
+-                const char *topic = action == "heartbeat" ? bullet_msgs::HEARTBEAT_TOPIC : bullet_msgs::COMMAND_TOPIC;
++                const char *topic = action == "heartbeat" ? bullet_render::HEARTBEAT_TOPIC : bullet_render::COMMAND_TOPIC;
+                 if (zmq_send(control, topic, std::strlen(topic), ZMQ_SNDMORE | ZMQ_DONTWAIT) < 0 ||
+                     zmq_send(control, payload.data(), payload.size(), ZMQ_DONTWAIT) < 0)
+                     throw std::runtime_error(zmq_strerror(zmq_errno()));
+@@ -279,7 +320,7 @@
+                 const auto now = Clock::now();
+                 if (now >= next_heartbeat) {
+                     publish("heartbeat", std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
+-                    next_heartbeat = now + std::chrono::milliseconds(bullet_msgs::HEARTBEAT_INTERVAL_MS);
++                    next_heartbeat = now + std::chrono::milliseconds(bullet_render::HEARTBEAT_INTERVAL_MS);
+                 }
+                 std::deque<std::pair<std::string, int64_t>> outgoing;
+                 { std::lock_guard lock(mutex); outgoing.swap(commands); }
+@@ -295,7 +336,7 @@
+                 std::string spawn;
+                 { std::lock_guard lock(mutex); spawn.swap(spawn_outgoing); }
+                 if (!spawn.empty()) {
+-                    const auto &topic = bullet_msgs::SPAWN_REQUEST_TOPIC;
++                    const auto &topic = bullet_render::SPAWN_REQUEST_TOPIC;
+                     if (zmq_send(control, topic, sizeof(topic) - 1, ZMQ_SNDMORE | ZMQ_DONTWAIT) < 0 ||
+                         zmq_send(control, spawn.data(), spawn.size(), ZMQ_DONTWAIT) < 0)
+                         throw std::runtime_error(zmq_strerror(zmq_errno()));
+@@ -303,7 +344,7 @@
+                 std::string wind;
+                 { std::lock_guard lock(mutex); wind.swap(wind_outgoing); }
+                 if (!wind.empty()) {
+-                    const auto &topic = bullet_msgs::WIND_REQUEST_TOPIC;
++                    const auto &topic = bullet_render::WIND_REQUEST_TOPIC;
+                     if (zmq_send(control, topic, sizeof(topic) - 1, ZMQ_SNDMORE | ZMQ_DONTWAIT) < 0 ||
+                         zmq_send(control, wind.data(), wind.size(), ZMQ_DONTWAIT) < 0)
+                         throw std::runtime_error(zmq_strerror(zmq_errno()));
+@@ -334,11 +375,11 @@
+                     zmq_msg_close(&message);
+                 } while (more);
+                 if (malformed || parts != 2) { ++invalid; continue; }
+-                const bool is_config = topic == "render/drone_1/config";
++                const bool is_config = topic == (viewer_only ? "camera/front/camera_info" : "render/drone_1/config");
+                 const bool is_profile = topic == "render/drone_1/profile";
+-                const bool is_state = topic == bullet_msgs::STATE_TOPIC;
+-                const bool is_spawn = topic == bullet_msgs::SPAWN_STATE_TOPIC;
+-                const bool is_wind = topic == bullet_msgs::WIND_STATE_TOPIC;
++                const bool is_state = topic == bullet_render::STATE_TOPIC;
++                const bool is_spawn = topic == bullet_render::SPAWN_STATE_TOPIC;
++                const bool is_wind = topic == bullet_render::WIND_STATE_TOPIC;
+                 if (!is_wind && !is_spawn && !is_config && !is_profile && !is_state && topic != "render/drone_1/pose") continue;
+                 std::lock_guard lock(mutex);
+                 if (is_wind) { wind_slot = std::move(raw); wind_received = Clock::now(); continue; }
+@@ -367,7 +408,7 @@
+ ZmqCameraAdapter::~ZmqCameraAdapter() { close(); }
+ 
+ void ZmqCameraAdapter::_bind_methods() {
+-    ClassDB::bind_method(D_METHOD("start", "transport_path"), &ZmqCameraAdapter::start);
++    ClassDB::bind_method(D_METHOD("start", "transport_path", "viewer_only"), &ZmqCameraAdapter::start, DEFVAL(false));
+     ClassDB::bind_method(D_METHOD("poll_request"), &ZmqCameraAdapter::poll_request);
+     ClassDB::bind_method(D_METHOD("publish_frame", "pixels", "request"), &ZmqCameraAdapter::publish_frame);
+     ClassDB::bind_method(D_METHOD("get_stats"), &ZmqCameraAdapter::get_stats);
+@@ -384,21 +425,24 @@
+     ClassDB::bind_method(D_METHOD("close"), &ZmqCameraAdapter::close);
+ }
+ 
+-bool ZmqCameraAdapter::start(const String &transport_path) {
++bool ZmqCameraAdapter::start(const String &transport_path, bool viewer_only) {
+     if (impl->running) return false;
+     close();
+     impl = std::make_unique<Impl>();
++    impl->viewer_only = viewer_only;
+     try {
+         const auto file = FileAccess::open(transport_path, FileAccess::READ);
+         if (file.is_null()) throw std::runtime_error("cannot read transport profile");
+         const Dictionary profile = parse(file->get_as_text().utf8().get_data());
+         Dictionary legacy_profile = profile.duplicate();
+         legacy_profile.erase("flight_command_endpoint");
++        legacy_profile.erase("request_endpoint");
++        legacy_profile.erase("request_io");
+         if (!shape(legacy_profile, {"telemetry_endpoint", "image_endpoint", "control_endpoint"})) throw std::runtime_error("invalid transport profile");
+         for (const auto key : {"telemetry_endpoint", "image_endpoint", "control_endpoint"}) {
+             const auto endpoint = String(profile[key]).utf8();
+             if (profile[key].get_type() != Variant::STRING ||
+-                !bullet_msgs::valid_endpoint(std::string_view(endpoint.get_data(), endpoint.length())))
++                !bullet_render::valid_endpoint(std::string_view(endpoint.get_data(), endpoint.length())))
+                 throw std::runtime_error("expected loopback TCP endpoint tcp://127.0.0.1:<port 1-65535>");
+         }
+         if (profile["telemetry_endpoint"] == profile["image_endpoint"] ||
+@@ -406,10 +450,18 @@
+         if (profile.has("flight_command_endpoint")) {
+             const auto endpoint = String(profile["flight_command_endpoint"]).utf8();
+             if (profile["flight_command_endpoint"].get_type() != Variant::STRING ||
+-                !bullet_msgs::valid_endpoint(std::string_view(endpoint.get_data(), endpoint.length())))
++                !bullet_render::valid_endpoint(std::string_view(endpoint.get_data(), endpoint.length())))
+                 throw std::runtime_error("invalid flight command endpoint");
+             for (const auto key : {"telemetry_endpoint", "image_endpoint", "control_endpoint"})
+                 if (profile[key] == profile["flight_command_endpoint"]) throw std::runtime_error("endpoints must differ");
++        }
++        if (profile.has("request_endpoint")) {
++            const auto endpoint = String(profile["request_endpoint"]).utf8();
++            if (profile["request_endpoint"].get_type() != Variant::STRING ||
++                !bullet_render::valid_endpoint(std::string_view(endpoint.get_data(), endpoint.length())))
++                throw std::runtime_error("invalid request endpoint");
++            for (const auto key : {"telemetry_endpoint", "image_endpoint", "control_endpoint"})
++                if (profile[key] == profile["request_endpoint"]) throw std::runtime_error("endpoints must differ");
+         }
+         impl->context = zmq_ctx_new();
+         if (!impl->context) throw std::runtime_error(zmq_strerror(zmq_errno()));
+@@ -446,6 +498,65 @@
+         raw_config.swap(impl->config_slot);
+         raw_pose.swap(impl->pose_slot);
+         received = impl->pose_received;
++    }
++    if (impl->viewer_only) {
++        if (!raw_config.empty()) {
++            const Dictionary message = parse(raw_config);
++            Dictionary camera;
++            if (!viewer_camera(message, camera)) {
++                ++impl->invalid;
++            } else {
++                const String stream = message["stream_id"];
++                const bool same = !impl->config.is_empty() && String(impl->config["stream_id"]) == stream;
++                if (same && impl->camera != camera) {
++                    impl->error = "Camera settings changed within a stream";
++                    return {};
++                }
++                if (!same && !impl->retired.contains(stream)) {
++                    if (!impl->camera.is_empty() && impl->camera != camera) {
++                        impl->error = "Camera settings changed: restart Godot";
++                        return {};
++                    }
++                    if (!impl->config.is_empty()) impl->retired.insert(impl->config["stream_id"]);
++                    Dictionary config;
++                    config["stream_id"] = stream;
++                    config["camera"] = camera;
++                    impl->config = config;
++                    impl->camera = camera;
++                    impl->last_sequence = -1;
++                    impl->frame_bytes = int64_t(camera["width_px"]) * int64_t(camera["height_px"]) * 3;
++                    if (impl->images.session.empty()) {
++                        try {
++                            impl->images.open(int64_t(camera["width_px"]), int64_t(camera["height_px"]));
++                            UtilityFunctions::print("SHM publisher session: ", impl->images.session.c_str());
++                        } catch (const std::exception &e) {
++                            impl->error = String("SHM allocation failed: ") + e.what();
++                            return {};
++                        }
++                    }
++                }
++            }
++        }
++        if (raw_pose.empty() || impl->config.is_empty()) return {};
++        const Dictionary pose = parse(raw_pose);
++        if (!valid_viewer_pose(pose)) { ++impl->invalid; return {}; }
++        const Dictionary header = pose["header"];
++        const int64_t sequence = header["fid"];
++        if (sequence == 0 && impl->last_sequence > 0) impl->last_sequence = -1;
++        if (sequence <= impl->last_sequence) return {};
++        if (impl->last_sequence >= 0) impl->sequence_gaps += sequence - impl->last_sequence - 1;
++        impl->last_sequence = sequence;
++        if (std::chrono::duration<double>(Clock::now() - received).count() > STALE_SECONDS) {
++            ++impl->stale;
++            return {};
++        }
++        impl->capture_received = received;
++        impl->capture_sequence = sequence;
++        impl->capture_stream = impl->config["stream_id"];
++        Dictionary request;
++        request["config"] = impl->config;
++        request["pose"] = pose;
++        return request;
+     }
+     if (!raw_config.empty()) {
+         const Dictionary config = parse(raw_config);
+@@ -515,6 +626,35 @@
+             throw std::runtime_error("adapter is not ready to publish");
+         }
+         const Dictionary pose = request.get("pose", Dictionary());
++        if (impl->viewer_only) {
++            if (!valid_viewer_pose(pose)) throw std::runtime_error("invalid viewer pose");
++            const Dictionary header = pose["header"];
++            const Dictionary stamp = header["time_stamp"];
++            if (int64_t(header["fid"]) != impl->capture_sequence || impl->capture_sequence < 0 ||
++                impl->capture_stream != String(impl->config["stream_id"]))
++                throw std::runtime_error("frame does not match requested pose");
++            impl->capture_sequence = -1;
++            if (pixels.size() != impl->frame_bytes) throw std::runtime_error("RGB frame size mismatch");
++            if (std::chrono::duration<double>(Clock::now() - impl->capture_received).count() > STALE_SECONDS) {
++                ++impl->stale;
++                return true;
++            }
++            const uint64_t capture_ns = uint64_t(int64_t(stamp["sec"])) * NANOSECONDS_PER_SECOND +
++                                        uint64_t(int64_t(stamp["nanosec"]));
++            const auto header_json = JSON::stringify(header, "", true, true).utf8();
++            const auto drone_id_json = JSON::stringify(pose["drone_id"], "", true, true).utf8();
++            const auto message = impl->images.write(pixels.ptr(), pixels.size(), capture_ns, {},
++                std::string(header_json.get_data(), header_json.length()),
++                std::string(drone_id_json.get_data(), drone_id_json.length()));
++            if (message.empty()) { ++impl->busy_slots; return true; }
++            if (zmq_send(impl->publisher, message.data(), message.size(), ZMQ_DONTWAIT) < 0) {
++                if (zmq_errno() == EAGAIN) { ++impl->publication_drops; return true; }
++                throw std::runtime_error(zmq_strerror(zmq_errno()));
++            }
++            impl->source_age_ms = std::chrono::duration<double, std::milli>(Clock::now() - impl->capture_received).count();
++            ++impl->frames;
++            return true;
++        }
+         if (int64_t(pose.get("sequence", -1)) != impl->capture_sequence ||
+             String(pose.get("stream_id", "")) != impl->capture_stream || impl->capture_sequence < 0) {
+             throw std::runtime_error("frame does not match the requested pose");
+@@ -588,7 +728,7 @@
+ bool ZmqCameraAdapter::publish_control(const String &action) {
+     if (!impl->running || (action != "start" && action != "stop" && action != "reset")) return false;
+     std::lock_guard lock(impl->mutex);
+-    if (impl->commands.size() >= bullet_msgs::CONTROL_QUEUE_SIZE) return false;
++    if (impl->commands.size() >= bullet_render::CONTROL_QUEUE_SIZE) return false;
+     impl->commands.emplace_back(action.utf8().get_data(),
+         std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count());
+     return true;
+@@ -666,7 +806,7 @@
+         if (valid) { impl->control_state = state; impl->valid_state_received = received; impl->control_error = ""; }
+         else { ++impl->invalid; impl->control_error = "Rejected invalid simulation state"; }
+     }
+-    if (!impl->running || std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - impl->valid_state_received).count() > bullet_msgs::HEARTBEAT_TIMEOUT_MS) return {};
++    if (!impl->running || std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - impl->valid_state_received).count() > bullet_render::HEARTBEAT_TIMEOUT_MS) return {};
+     return impl->control_state;
+ }
+ 
+@@ -674,7 +814,7 @@
+ bool ZmqCameraAdapter::publish_spawn(const Dictionary &request) {
+     Dictionary legacy = request.duplicate();
+     legacy.erase("takeoff_height_m");
+-    const Variant height = request.get("takeoff_height_m", bullet_msgs::DEFAULT_TAKEOFF_HEIGHT_M);
++    const Variant height = request.get("takeoff_height_m", bullet_render::DEFAULT_TAKEOFF_HEIGHT_M);
+     if (!impl->running || !valid_takeoff_height(height) || !shape(legacy, {"physics_id", "episode_id", "request_id", "scenario_name", "position_m"}) ||
+         !control_identity(request["physics_id"]) || !control_identity(request["episode_id"]) || !control_identity(request["request_id"]) ||
+         !spawn_name(request["scenario_name"]) || !spawn_position(request["position_m"])) return false;
+@@ -703,7 +843,7 @@
+         } else ++impl->invalid;
+     }
+     if (!impl->running || control.is_empty() || impl->spawn_state.is_empty() ||
+-        std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - impl->valid_spawn_received).count() > bullet_msgs::SPAWN_STATE_TIMEOUT_MS) return {};
++        std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - impl->valid_spawn_received).count() > bullet_render::SPAWN_STATE_TIMEOUT_MS) return {};
+     for (const auto key : {"physics_id", "episode_id", "controller_id"})
+         if (impl->spawn_state[key] != control[key]) return {};
+     return impl->spawn_state;
+@@ -741,7 +881,7 @@
+         } else ++impl->invalid;
+     }
+     if (!impl->running || control.is_empty() || impl->wind_state.is_empty() ||
+-        std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - impl->valid_wind_received).count() > bullet_msgs::WIND_STATE_TIMEOUT_MS) return {};
++        std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - impl->valid_wind_received).count() > bullet_render::WIND_STATE_TIMEOUT_MS) return {};
+     for (const auto key : {"physics_id", "episode_id", "controller_id"})
+         if (impl->wind_state[key] != control[key]) return {};
+     return impl->wind_state;
+diff --git a/src/native/zmq_camera_adapter.h b/src/native/zmq_camera_adapter.h
+--- a/src/native/zmq_camera_adapter.h
++++ b/src/native/zmq_camera_adapter.h
+@@ -11,7 +11,7 @@
+ public:
+     ZmqCameraAdapter();
+     ~ZmqCameraAdapter();
+-    bool start(const godot::String &transport_path);
++    bool start(const godot::String &transport_path, bool viewer_only = false);
+     godot::Dictionary poll_request();
+     bool publish_frame(const godot::PackedByteArray &pixels, const godot::Dictionary &request);
+     godot::Dictionary get_stats() const;
+diff --git a/src/native/include/bullet_render/shm.hpp b/src/native/include/bullet_render/shm.hpp
+new file mode 100644
+--- /dev/null
++++ b/src/native/include/bullet_render/shm.hpp
+@@ -0,0 +1,156 @@
++#pragma once
++#include <array>
++#include <atomic>
++#include <cerrno>
++#include <charconv>
++#include <cstdint>
++#include <cstring>
++#include <stdexcept>
++#include <string>
++#include <string_view>
++#include <fcntl.h>
++#include <sys/file.h>
++#include <sys/mman.h>
++#include <sys/random.h>
++#include <sys/stat.h>
++#include <unistd.h>
++
++namespace bullet_render {
++inline constexpr size_t HEADER_BYTES = 128;
++inline constexpr size_t SLOT_COUNT = 3;
++inline constexpr uint32_t VERSION = 1;
++inline constexpr size_t MAX_IMAGE_BYTES = 64 * 1024 * 1024;
++inline constexpr size_t MAX_METADATA_BYTES = 1024;
++inline constexpr char MAGIC[8] = "BMSHM01";
++
++inline void put_le(uint8_t *data, uint64_t value, size_t bytes) {
++    for (size_t i = 0; i < bytes; ++i) data[i] = (value >> (8 * i)) & 0xff;
++}
++inline bool valid_endpoint(std::string_view endpoint) {
++    constexpr std::string_view prefix = "tcp://127.0.0.1:";
++    if (!endpoint.starts_with(prefix)) return false;
++    auto port = endpoint.substr(prefix.size());
++    if (port.empty() || port.size() > 5 || port[0] == '0') return false;
++    unsigned value = 0;
++    auto parsed = std::from_chars(port.data(), port.data() + port.size(), value);
++    return parsed.ec == std::errc() && parsed.ptr == port.data() + port.size() && value >= 1 && value <= 65535;
++}
++inline void check_posix(int result, const char *operation) {
++    if (result < 0) throw std::runtime_error(std::string(operation) + ": " + std::strerror(errno));
++}
++
++class FrameWriter {
++    struct Slot {
++        int fd = -1;
++        uint8_t *data = nullptr;
++        std::string name;
++    };
++    std::array<Slot, SLOT_COUNT> slots;
++    size_t next_slot = 0;
++    uint32_t width = 0, height = 0;
++    size_t frame_bytes = 0;
++public:
++    std::string session;
++    uint64_t sequence = 0;
++    FrameWriter() = default;
++    FrameWriter(const FrameWriter &) = delete;
++    FrameWriter &operator=(const FrameWriter &) = delete;
++    ~FrameWriter() { close(); }
++
++    void open(uint32_t w, uint32_t h) {
++        close();
++        if (!w || !h || uint64_t(w) * h * 3 > MAX_IMAGE_BYTES)
++            throw std::runtime_error("invalid SHM image dimensions");
++        width = w; height = h; frame_bytes = size_t(w) * h * 3;
++        std::array<uint8_t, 16> random{};
++        size_t offset = 0;
++        while (offset < random.size()) {
++            const auto count = getrandom(random.data() + offset, random.size() - offset, 0);
++            if (count < 0 && errno == EINTR) continue;
++            check_posix(count, "getrandom");
++            if (count == 0) throw std::runtime_error("getrandom returned no bytes");
++            offset += count;
++        }
++        session.clear();
++        constexpr char hex[] = "0123456789abcdef";
++        for (const auto byte : random) { session += hex[byte >> 4]; session += hex[byte & 15]; }
++        try {
++            for (size_t i = 0; i < SLOT_COUNT; ++i) {
++                auto &slot = slots[i];
++                const auto name = "/bullet_msgs_" + session + "_s" + std::to_string(i);
++                slot.fd = shm_open(name.c_str(), O_CREAT | O_EXCL | O_RDWR | O_CLOEXEC, 0600);
++                check_posix(slot.fd, "shm_open");
++                slot.name = name;
++                check_posix(fchmod(slot.fd, 0600), "fchmod");
++                check_posix(ftruncate(slot.fd, HEADER_BYTES + frame_bytes), "ftruncate");
++                const int allocated = posix_fallocate(slot.fd, 0, HEADER_BYTES + frame_bytes);
++                if (allocated != 0) throw std::runtime_error(std::string("SHM allocation: ") + std::strerror(allocated));
++                void *mapping = mmap(nullptr, HEADER_BYTES + frame_bytes, PROT_READ | PROT_WRITE, MAP_SHARED, slot.fd, 0);
++                if (mapping == MAP_FAILED) check_posix(-1, "mmap");
++                slot.data = static_cast<uint8_t *>(mapping);
++            }
++        } catch (...) { close(); throw; }
++    }
++
++    // Empty notification means every slot is busy, never wait for readers.
++    std::string write(const uint8_t *pixels, size_t size, uint64_t capture_ns,
++                      const std::string &source_json = {}, const std::string &header_json = {},
++                      const std::string &drone_id_json = {}) {
++        if (!frame_bytes || size != frame_bytes) throw std::runtime_error("SHM RGB frame size mismatch");
++        ++sequence;
++        for (size_t attempt = 0; attempt < SLOT_COUNT; ++attempt) {
++            const size_t index = (next_slot + attempt) % SLOT_COUNT;
++            auto &slot = slots[index];
++            if (flock(slot.fd, LOCK_EX | LOCK_NB) != 0) {
++                if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) continue;
++                check_posix(-1, "flock writer");
++            }
++            struct Lock { int fd; ~Lock() { flock(fd, LOCK_UN); } } lock{slot.fd};
++            std::array<uint8_t, HEADER_BYTES> header{};
++            std::memcpy(header.data(), MAGIC, 8);
++            const std::array<uint32_t, 6> fields{VERSION, uint32_t(index), width, height, 1, width * 3};
++            for (size_t i = 0; i < fields.size(); ++i) put_le(header.data() + 8 + i * 4, fields[i], 4);
++            put_le(header.data() + 32, frame_bytes, 8);
++            put_le(header.data() + 40, sequence, 8);
++            put_le(header.data() + 48, capture_ns, 8);
++            std::memcpy(header.data() + 64, session.data(), session.size());
++            const uint8_t incomplete[8]{};
++            if (pwrite(slot.fd, incomplete, 8, 56) != 8) throw std::runtime_error("could not invalidate SHM slot");
++            std::atomic_thread_fence(std::memory_order_seq_cst);
++            std::memcpy(slot.data, header.data(), header.size());
++            std::memcpy(slot.data + HEADER_BYTES, pixels, frame_bytes);
++            std::atomic_thread_fence(std::memory_order_seq_cst);
++            const uint8_t complete[8]{1};
++            if (pwrite(slot.fd, complete, 8, 56) != 8) throw std::runtime_error("could not commit SHM slot");
++            if (header_json.empty() != drone_id_json.empty()) throw std::runtime_error("incomplete pose identity");
++            const auto descriptor_version = !header_json.empty() ? "3" : (source_json.empty() ? "1" : "2");
++            const auto metadata = "{\"version\":" + std::string(descriptor_version) + ",\"session\":\"" + session + "\",\"slot\":" + std::to_string(index) +
++                ",\"shm_name\":\"" + slot.name + "\",\"width\":" + std::to_string(width) +
++                ",\"height\":" + std::to_string(height) + ",\"encoding\":\"rgb8\",\"step\":" + std::to_string(width * 3) +
++                ",\"bytes\":" + std::to_string(frame_bytes) + ",\"sequence\":" + std::to_string(sequence) +
++                ",\"capture_ns\":" + std::to_string(capture_ns) +
++                (source_json.empty() ? "" : ",\"source\":" + source_json) +
++                (header_json.empty() ? "" : ",\"header\":" + header_json + ",\"drone_id\":" + drone_id_json) + "}";
++            if (metadata.size() > MAX_METADATA_BYTES) throw std::runtime_error("SHM descriptor too large");
++            constexpr char topic[] = "camera/front/image";
++            std::string message(topic, sizeof(topic));
++            std::array<uint8_t, 4> length{};
++            put_le(length.data(), metadata.size(), 4);
++            message.append(reinterpret_cast<const char *>(length.data()), length.size());
++            message += metadata;
++            next_slot = (index + 1) % SLOT_COUNT;
++            return message;
++        }
++        return {};
++    }
++
++    void close() noexcept {
++        for (auto &slot : slots) {
++            if (slot.data) { munmap(slot.data, HEADER_BYTES + frame_bytes); slot.data = nullptr; }
++            if (slot.fd >= 0) { ::close(slot.fd); slot.fd = -1; }
++            if (!slot.name.empty()) { shm_unlink(slot.name.c_str()); slot.name.clear(); }
++        }
++        frame_bytes = 0; next_slot = 0; sequence = 0;
++    }
++};
++}
+diff --git a/src/native/include/bullet_render/control.hpp b/src/native/include/bullet_render/control.hpp
+new file mode 100644
+--- /dev/null
++++ b/src/native/include/bullet_render/control.hpp
+@@ -0,0 +1,10 @@
++#pragma once
++#include <cstddef>
++namespace bullet_render {
++inline constexpr char COMMAND_TOPIC[] = "simulation/command";
++inline constexpr char HEARTBEAT_TOPIC[] = "simulation/heartbeat";
++inline constexpr char STATE_TOPIC[] = "simulation/state";
++inline constexpr int HEARTBEAT_INTERVAL_MS = 500;
++inline constexpr int HEARTBEAT_TIMEOUT_MS = 3000;
++inline constexpr size_t CONTROL_QUEUE_SIZE = 8;
++}
+diff --git a/src/native/include/bullet_render/spawn.hpp b/src/native/include/bullet_render/spawn.hpp
+new file mode 100644
+--- /dev/null
++++ b/src/native/include/bullet_render/spawn.hpp
+@@ -0,0 +1,12 @@
++#pragma once
++namespace bullet_render {
++inline constexpr char SPAWN_REQUEST_TOPIC[] = "simulation/spawn_request";
++inline constexpr char SPAWN_STATE_TOPIC[] = "simulation/spawn_state";
++inline constexpr double SPAWN_HORIZONTAL_LIMIT_M = 250.0;
++inline constexpr double SPAWN_MIN_ALTITUDE_M = 0.015;
++inline constexpr double SPAWN_MAX_ALTITUDE_M = 500.0;
++inline constexpr double DEFAULT_TAKEOFF_HEIGHT_M = 20.0;
++inline constexpr double MIN_TAKEOFF_HEIGHT_M = 0.1;
++inline constexpr double MAX_TAKEOFF_HEIGHT_M = 100.0;
++inline constexpr int SPAWN_STATE_TIMEOUT_MS = 1000;
++}
+diff --git a/src/native/include/bullet_render/wind.hpp b/src/native/include/bullet_render/wind.hpp
+new file mode 100644
+--- /dev/null
++++ b/src/native/include/bullet_render/wind.hpp
+@@ -0,0 +1,6 @@
++#pragma once
++namespace bullet_render {
++inline constexpr char WIND_REQUEST_TOPIC[] = "simulation/wind_request";
++inline constexpr char WIND_STATE_TOPIC[] = "simulation/wind_state";
++inline constexpr int WIND_STATE_TIMEOUT_MS = 1000;
++}
