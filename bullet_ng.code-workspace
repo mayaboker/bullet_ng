@@ -23,6 +23,9 @@
 		},
 		{
 			"path": "../../projects/los_tracking"
+		},
+		{
+			"path": "../../projects/bullet_visual"
 		}
 	]
 }
