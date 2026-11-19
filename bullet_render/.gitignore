@@ -1,9 +1,0 @@
-.venv/
-__pycache__/
-.pytest_cache/
-godot/.godot/
-recordings/
-*.mcap
-*.partial
-build/
-godot/bin/

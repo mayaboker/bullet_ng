@@ -8,7 +8,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parent
-RENDER_SOURCE = ROOT.parents[1] / 'bullet_render'
+RENDER_SOURCE = (ROOT.parents[1] / '../../projects/bullet_render').resolve()
 TERRAIN_SOURCE = ROOT.parent / 'custom/terrain/terrain_heightmap.f32'
 DISTRIBUTION = ROOT / 'dist/linux-x86_64'
 NATIVE_LIBRARY = 'libzmq_camera.so'
