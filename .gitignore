@@ -11,6 +11,7 @@ __pycache__/
 build/
 dist/
 recordings/
+logs/
 *.mcap
 *.mcap.partial
 .coverage

@@ -8,6 +8,8 @@ View reads the renderer's local camera image on ZMQ port 5556. The hover/land st
 
 Each pane has a labeled top border, its own tmux scrollback, and a separate Bash command history. To stop one process, select its pane and press `Ctrl+C`. At the shell prompt, press `Up` then `Enter` to rerun that pane's last command, or use `Ctrl+r` to search earlier commands. To browse output, press `Ctrl+b` then `[`, scroll with the arrow or Page Up keys, and press `q` to leave copy mode. Pane histories are saved under `${XDG_STATE_HOME:-$HOME/.local/state}/bullet_ng/history/`.
 
+Bullet App also saves each run to `~/workspaces/bullet_ng/logs/bullet_app_<timestamp>.log`. The App pane prints the exact file path when it starts. These files include detailed target tracking checkpoints that are not shown in the pane.
+
 Press `Ctrl+b`, then `d` to detach. Running the task again reattaches to the same session. To stop the stack, interrupt each pane with `Ctrl+C`, then run `tmux -L bullet-hover-land kill-session -t bullet-hover-land` if the session remains. The launcher checks the SITL, renderer, and View ports before creating a new session.
 
 ## Target-hit mission

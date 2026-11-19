@@ -89,6 +89,8 @@ The `bullet_drone_plan` and `bullet_drone_external_render` folders are retained 
 
 Edit and build each project in its own repository under `~/projects`; `bullet_ng` has no root Python package or build. Use the project READMEs for dependency installation and development commands. Update `bullet_ng.code-workspace` and the clone script together when the workspace project list changes.
 
+Bullet App creates one `bullet_app_<timestamp>.log` file per run in [`logs/`](logs/). The terminal shows INFO events; the file also contains 5 Hz DEBUG checkpoints during target search and tracking. Logs are local, ignored by Git, and retained until you remove them. App stops before flight if it cannot create the log file.
+
 ## Testing
 
 Check the shell script and workspace JSON with:
