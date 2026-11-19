@@ -32,6 +32,16 @@
 		"version": "2.0.0",
 		"tasks": [
 			{
+				"label": "Bullet: Run hover/land mission stack (tmux)",
+				"type": "shell",
+				"command": "bash launch/run_hover_land.sh",
+				"options": { "cwd": "${workspaceFolder:bullet_ng}" },
+				"icon": { "id": "play", "color": "terminal.ansiWhite" },
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "dedicated", "clear": false },
+				"detail": "Attach to the three-pane hover/land tmux session; Godot and View open on their selected monitors."
+			},
+			{
 				"label": "Bullet: Run hover/land mission stack",
 				"icon": { "id": "play", "color": "terminal.ansiYellow" },
 				"dependsOn": [
