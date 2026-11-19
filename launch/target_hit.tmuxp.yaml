@@ -2,16 +2,26 @@
 session_name: bullet-target-hit
 # The launch script exports this absolute path before loading the config.
 start_directory: ${BULLET_DRONE_ROOT}
+# Record launch commands so Up can rerun them after Ctrl+C.
+suppress_history: false
 windows:
   - window_name: target-hit
+    window_shell: /bin/bash
     # Scene, Visual, App, and View each get a pane in a two-by-two grid.
     layout: tiled
+    options:
+      pane-border-status: top
+      pane-border-format: ' #{pane_index}: #{@bullet_label} '
     panes:
       - shell_command:
+          - source ${BULLET_NG_ROOT}/launch/setup_pane.sh target-hit-scene 'Scene / SITL / Godot'
           - __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --render --target-scene --render-monitor DP-1-0 --render-half top
       - shell_command:
+          - source ${BULLET_NG_ROOT}/launch/setup_pane.sh target-hit-visual 'Bullet Visual'
           - uv run --project ../bullet_visual --locked bullet-visual --config ../bullet_visual/config/zmq.yaml
       - shell_command:
+          - source ${BULLET_NG_ROOT}/launch/setup_pane.sh target-hit-app 'Bullet App / target-hit'
           - bash tools/run_app_after_sitl.sh target-hit
       - shell_command:
+          - source ${BULLET_NG_ROOT}/launch/setup_pane.sh target-hit-view 'Bullet View'
           - uv run --project ../bullet_view --locked bullet-view --image-endpoint tcp://127.0.0.1:5556 --monitor DP-1-0 --monitor-half bottom

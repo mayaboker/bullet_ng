@@ -59,7 +59,7 @@ Open `bullet_ng.code-workspace` in VS Code after cloning and installing the proj
 
 ## Usage
 
-Run **Bullet: Run target-hit mission stack (tmux)** for the red-target workflow. It adds Bullet Visual to the simulator, App, and View processes. See [launch/README.md](launch/README.md) for monitor layout, detach, and shutdown instructions. The workspace also has tasks that open each process in a separate VS Code terminal.
+Run **Bullet: Run target-hit mission stack (tmux)** for the red-target workflow. It adds Bullet Visual to the simulator, App, and View processes. Each tmux pane has a labeled header, separate scrollback, and its own command history; after `Ctrl+C`, press `Up` and `Enter` to rerun that pane's command. See [launch/README.md](launch/README.md) for monitor layout, history, detach, and shutdown instructions. The workspace also has tasks that open each process in a separate VS Code terminal.
 
 Running `./scripts/clone_workspace.sh` without a tag only lists local `bullet_ng` tags and makes no filesystem changes. Running it with a tag verifies all remotes and destinations before cloning. It creates `~/projects` when needed and leaves the `bullet_ng` checkout alone.
 

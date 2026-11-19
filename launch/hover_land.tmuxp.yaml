@@ -2,14 +2,23 @@
 session_name: bullet-hover-land
 # The launch script exports this absolute path before loading the config.
 start_directory: ${BULLET_DRONE_ROOT}
+# Record launch commands so Up can rerun them after Ctrl+C.
+suppress_history: false
 windows:
   - window_name: hover-land
+    window_shell: /bin/bash
     # Keep Scene, App, and View in three equally sized terminal panes.
     layout: even-horizontal
+    options:
+      pane-border-status: top
+      pane-border-format: ' #{pane_index}: #{@bullet_label} '
     panes:
       - shell_command:
+          - source ${BULLET_NG_ROOT}/launch/setup_pane.sh hover-land-scene 'Scene / SITL / Godot'
           - __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --render --render-monitor DP-1-0 --render-half top
       - shell_command:
+          - source ${BULLET_NG_ROOT}/launch/setup_pane.sh hover-land-app 'Bullet App / hover-land'
           - bash tools/run_app_after_sitl.sh hover-land
       - shell_command:
+          - source ${BULLET_NG_ROOT}/launch/setup_pane.sh hover-land-view 'Bullet View'
           - uv run --project ../bullet_view --locked bullet-view --image-endpoint tcp://127.0.0.1:5556 --monitor DP-1-0 --monitor-half bottom
