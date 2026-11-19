@@ -8,7 +8,7 @@ windows:
     layout: even-horizontal
     panes:
       - shell_command:
-          - __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia uv run --frozen --extra render --extra sitl --extra mavlink python -m examples.simulation_launcher.main --sitl --render --render-monitor DP-1-0 --render-half top
+          - __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --render --render-monitor DP-1-0 --render-half top
       - shell_command:
           - bash tools/run_app_after_sitl.sh hover-land
       - shell_command:
