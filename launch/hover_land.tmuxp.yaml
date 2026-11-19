@@ -12,4 +12,4 @@ windows:
       - shell_command:
           - bash tools/run_app_after_sitl.sh hover-land
       - shell_command:
-          - uv run --project ../bullet_view --locked bullet-view --monitor DP-1-0 --monitor-half bottom
+          - uv run --project ../bullet_view --locked bullet-view --image-endpoint tcp://127.0.0.1:5556 --monitor DP-1-0 --monitor-half bottom
