@@ -1,0 +1,17 @@
+# One reusable tmux session for the manual target-hit mission.
+session_name: bullet-target-hit
+# The launch script exports this absolute path before loading the config.
+start_directory: ${BULLET_DRONE_ROOT}
+windows:
+  - window_name: target-hit
+    # Scene, Visual, App, and View each get a pane in a two-by-two grid.
+    layout: tiled
+    panes:
+      - shell_command:
+          - __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia uv run --frozen --extra render --extra sitl --extra mavlink python -m examples.simulation_launcher.main --sitl --render --target-scene --render-monitor DP-1-0 --render-half top
+      - shell_command:
+          - uv run --project ../bullet_visual --locked bullet-visual --config ../bullet_visual/config/zmq.yaml
+      - shell_command:
+          - bash tools/run_app_after_sitl.sh target-hit
+      - shell_command:
+          - uv run --project ../bullet_view --locked bullet-view --monitor DP-1-0 --monitor-half bottom

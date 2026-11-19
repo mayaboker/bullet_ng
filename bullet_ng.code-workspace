@@ -32,6 +32,16 @@
 		"version": "2.0.0",
 		"tasks": [
 			{
+				"label": "Bullet: Run target-hit mission stack (tmux)",
+				"type": "shell",
+				"command": "bash launch/run_target_hit.sh",
+				"options": { "cwd": "${workspaceFolder:bullet_ng}" },
+				"icon": { "id": "play", "color": "terminal.ansiWhite" },
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "dedicated", "clear": false },
+				"detail": "Attach to the four-pane target-hit tmux session; Godot and View share DP-1-0."
+			},
+			{
 				"label": "Bullet: Run hover/land mission stack (tmux)",
 				"type": "shell",
 				"command": "bash launch/run_hover_land.sh",
