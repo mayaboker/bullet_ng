@@ -26,6 +26,9 @@
 		},
 		{
 			"path": "../../projects/bullet_visual"
+		},
+		{
+			"path": "../../projects/mcap_bagger"
 		}
 	],
 	"tasks": {
@@ -77,8 +80,8 @@
 			{
 				"label": "Bullet hover: App (manual approval)",
 				"type": "shell",
-				"command": "bash tools/run_app_after_sitl.sh hover-land",
-				"options": { "cwd": "${workspaceFolder:bullet_drone}" },
+				"command": "bash launch/run_app_after_sitl.sh hover-land",
+				"options": { "cwd": "${workspaceFolder:bullet_ng}" },
 				"problemMatcher": [],
 				"presentation": { "reveal": "always", "panel": "new", "clear": true }
 			},
@@ -117,8 +120,8 @@
 			{
 				"label": "Bullet target: App (target-hit)",
 				"type": "shell",
-				"command": "bash tools/run_app_after_sitl.sh target-hit",
-				"options": { "cwd": "${workspaceFolder:bullet_drone}" },
+				"command": "bash launch/run_app_after_sitl.sh target-hit",
+				"options": { "cwd": "${workspaceFolder:bullet_ng}" },
 				"problemMatcher": [],
 				"presentation": { "reveal": "always", "panel": "new", "clear": true }
 			},

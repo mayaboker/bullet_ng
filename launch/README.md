@@ -2,6 +2,8 @@
 
 Run the workspace task **Bullet: Run hover/land mission stack (tmux)**. It opens one VS Code terminal with three equal tmux panes: Scene/SITL/Godot, the manual `hover-land` App, and Bullet View. Arm and start the mission from View.
 
+The App pane and the separate-terminal App tasks run [run_app_after_sitl.sh](run_app_after_sitl.sh) from this workspace. It waits up to 60 seconds for Betaflight's MSP port 5761 and MAVLink port 5762, then starts the selected manual mission from the Bullet App checkout. The simulation launcher remains in `bullet_drone`.
+
 Godot opens in the top half of `DP-1-0`, and View opens in the bottom half of the same monitor. Each window fits within its half with a small margin. If that display is missing, both use the corresponding halves of the primary monitor. The terminal stays in VS Code.
 
 View reads the renderer's local camera image on ZMQ port 5556. The hover/land stack shows raw images; the target-hit stack overlays App-relayed, fid-matched detections.

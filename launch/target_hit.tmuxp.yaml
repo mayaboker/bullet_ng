@@ -21,7 +21,7 @@ windows:
           - uv run --project ../bullet_visual --locked bullet-visual --config ../bullet_visual/config/zmq.yaml
       - shell_command:
           - source ${BULLET_NG_ROOT}/launch/setup_pane.sh target-hit-app 'Bullet App / target-hit'
-          - bash tools/run_app_after_sitl.sh target-hit
+          - bash ${BULLET_NG_ROOT}/launch/run_app_after_sitl.sh target-hit
       - shell_command:
           - source ${BULLET_NG_ROOT}/launch/setup_pane.sh target-hit-view 'Bullet View'
           - uv run --project ../bullet_view --locked bullet-view --image-endpoint tcp://127.0.0.1:5556 --monitor DP-1-0 --monitor-half bottom

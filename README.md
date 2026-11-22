@@ -70,6 +70,7 @@ Running `./scripts/clone_workspace.sh` without a tag only lists local `bullet_ng
 | [bullet_ng.code-workspace](bullet_ng.code-workspace) | Project folders and VS Code task definitions. |
 | [launch/hover_land.tmuxp.yaml](launch/hover_land.tmuxp.yaml) | Three-pane hover/land stack. |
 | [launch/target_hit.tmuxp.yaml](launch/target_hit.tmuxp.yaml) | Four-pane target mission stack. |
+| [launch/run_app_after_sitl.sh](launch/run_app_after_sitl.sh) | Wait for SITL listeners, then run the selected manual Bullet App mission. |
 
 The tmux configurations place Godot and View on the two halves of monitor `DP-1-0`, with fallback to the primary monitor. Clone destinations are fixed at `~/projects`; the workspace itself is expected at `~/workspaces/bullet_ng`.
 
@@ -97,6 +98,7 @@ Check the shell script and workspace JSON with:
 
 ```bash
 bash -n scripts/clone_workspace.sh
+bash -n launch/run_app_after_sitl.sh
 python3 -m json.tool bullet_ng.code-workspace >/dev/null
 ```
 
