@@ -5,7 +5,15 @@ start_directory: ${BULLET_DRONE_ROOT}
 # Record launch commands so Up can rerun them after Ctrl+C.
 suppress_history: false
 windows:
+  - window_name: mcap-bagger
+    window_shell: /bin/bash
+    start_directory: ${BULLET_NG_ROOT}/../../projects/mcap_bagger
+    panes:
+      - shell_command:
+          - source ${BULLET_NG_ROOT}/launch/setup_pane.sh hover-land-bagger 'MCAP Bagger'
+          - uv run --locked mcap-bagger run --config config/recorder.yaml
   - window_name: hover-land
+    focus: true
     window_shell: /bin/bash
     # Keep Scene, App, and View in three equally sized terminal panes.
     layout: even-horizontal

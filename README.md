@@ -8,8 +8,9 @@ This repository connects the projects for local development and simulated flight
 
 ## Features
 
-- One VS Code workspace for the eight project repositories and `bullet_ng`.
-- Hover/land and red-target mission tasks, with tmux layouts that start each process in its own pane.
+- One VS Code workspace for the eight core project repositories, `mcap_bagger`, `flight_lens`, and `bullet_ng`.
+- Hover/land and red-target mission tasks, with tmux layouts for the mission processes and MCAP recording.
+- A green **FlightLens: Open** task for inspecting recorded MCAP files.
 - A tag-based clone script that checks all project remotes before writing to `~/projects`.
 
 ## Architecture
@@ -24,14 +25,16 @@ This repository connects the projects for local development and simulated flight
 | [bullet_perception](https://github.com/mayaboker/bullet_perception) | Red-target bounding-box detection. |
 | [los_tracking](https://github.com/mayaboker/los_tracking) | Line-of-sight guidance from bounding boxes and flight measurements. |
 | [bullet_visual](https://github.com/mayaboker/bullet_visual) | Camera ingestion, target detection, and bounding-box publication. |
+| `mcap_bagger` | Records configured camera, sensor, and App topics to MCAP. |
+| `flight_lens` | Opens MCAP recordings for image playback and flight telemetry analysis. |
 
-`bullet_drone` runs the physics loop and SITL while `bullet_render` produces camera images. `bullet_visual` applies `bullet_perception` to those images. `bullet_app` uses `beta_client` for flight I/O and `los_tracking` for its target mission; `bullet_view` displays telemetry and sends operator commands to the App.
+`bullet_drone` runs the physics loop and SITL while `bullet_render` produces camera images. `bullet_visual` applies `bullet_perception` to those images. `bullet_app` uses `beta_client` for flight I/O and `los_tracking` for its target mission; `bullet_view` displays telemetry and sends operator commands to the App. The tmux mission stacks start `mcap_bagger` in a separate window to record the configured streams.
 
 ## Requirements
 
 **Cloning:** Bash, Git, and access to the eight GitHub repositories. The same tag must exist in this checkout of `bullet_ng` and in all eight project remotes.
 
-**Running the stack:** Follow each project's setup instructions for Python/uv, Betaflight SITL, Godot, and native build dependencies. The tmux launch tasks additionally need `tmux`, `tmuxp`, `ss`, and a graphical desktop.
+**Running the stack:** Follow each project's setup instructions for Python/uv, Betaflight SITL, Godot, MCAP Bagger, and native build dependencies. The tmux launch tasks require an `mcap_bagger` checkout with `config/recorder.yaml` at `~/projects/mcap_bagger`, plus `tmux`, `tmuxp`, `ss`, and a graphical desktop.
 
 ## Installation
 
@@ -53,13 +56,17 @@ read -r -p 'Tag to install: ' tag
 
 The script checks the local `bullet_ng` tag and all eight project remotes before cloning. Each project ends on a local `workspace/<tag>` branch at that tag's commit. It stops if any project destination already exists; it does not update existing checkouts. If there are no tags, obtain a `bullet_ng` tag and publish the same tag in the eight project repositories before installation.
 
+Install `mcap_bagger` and `flight_lens` separately under `~/projects`; the clone script covers the original eight projects only. Bagger's `config/recorder.yaml` is required by the tmux launch tasks. The Flight Lens task requires its Python dependencies in the project environment or the shared Bullet environment.
+
 ## Quick Start
 
-Open `bullet_ng.code-workspace` in VS Code after cloning and installing the projects. Run **Bullet: Run hover/land mission stack (tmux)**, then use Bullet View to arm and start the mission. The task opens SITL/Godot, the manual App, and View in separate tmux panes.
+Open `bullet_ng.code-workspace` in VS Code after cloning and installing the projects. Run **Bullet: Run hover/land mission stack (tmux)**, then use Bullet View to arm and start the mission. The task opens SITL/Godot, the manual App, and View in one tmux window and MCAP Bagger in another.
 
 ## Usage
 
-Run **Bullet: Run target-hit mission stack (tmux)** for the red-target workflow. It adds Bullet Visual to the simulator, App, and View processes. Each tmux pane has a labeled header, separate scrollback, and its own command history; after `Ctrl+C`, press `Up` and `Enter` to rerun that pane's command. See [launch/README.md](launch/README.md) for monitor layout, history, detach, and shutdown instructions. The workspace also has tasks that open each process in a separate VS Code terminal.
+Run **Bullet: Run target-hit mission stack (tmux)** for the red-target workflow. It adds Bullet Visual to the simulator, App, and View processes and starts a separate MCAP Bagger window. Use `Ctrl+b` then `n` or `p` to change windows. Each mission pane has a labeled header, separate scrollback, and its own command history; after `Ctrl+C`, press `Up` and `Enter` to rerun that pane's command. Stop the bagger with `Ctrl+C` to finalize its recording. See [launch/README.md](launch/README.md) for monitor layout, history, detach, and shutdown instructions. The workspace also has tasks that open each process in a separate VS Code terminal.
+
+Run **FlightLens: Open** to launch the current `~/projects/flight_lens` source in a separate terminal, then select a finalized MCAP file in its Open dialog. The launcher uses the Flight Lens project environment when ready, otherwise the shared Bullet environment at `~/workspaces/bullet/.venv`.
 
 Running `./scripts/clone_workspace.sh` without a tag only lists local `bullet_ng` tags and makes no filesystem changes. Running it with a tag verifies all remotes and destinations before cloning. It creates `~/projects` when needed and leaves the `bullet_ng` checkout alone.
 
@@ -68,11 +75,14 @@ Running `./scripts/clone_workspace.sh` without a tag only lists local `bullet_ng
 | File | Purpose |
 | --- | --- |
 | [bullet_ng.code-workspace](bullet_ng.code-workspace) | Project folders and VS Code task definitions. |
-| [launch/hover_land.tmuxp.yaml](launch/hover_land.tmuxp.yaml) | Three-pane hover/land stack. |
-| [launch/target_hit.tmuxp.yaml](launch/target_hit.tmuxp.yaml) | Four-pane target mission stack. |
+| [launch/hover_land.tmuxp.yaml](launch/hover_land.tmuxp.yaml) | Three-pane hover/land mission window and MCAP Bagger window. |
+| [launch/target_hit.tmuxp.yaml](launch/target_hit.tmuxp.yaml) | Four-pane target mission window and MCAP Bagger window. |
+| [launch/hover_land.app.yaml](launch/hover_land.app.yaml) | SITL App connections and recording rates for hover/land. |
+| [launch/target_hit.app.yaml](launch/target_hit.app.yaml) | SITL App connections, contact input, and recording rates for target-hit. |
 | [launch/run_app_after_sitl.sh](launch/run_app_after_sitl.sh) | Wait for SITL listeners, then run the selected manual Bullet App mission. |
+| [launch/run_flight_lens.sh](launch/run_flight_lens.sh) | Launch the current Flight Lens source with an available Python environment. |
 
-The tmux configurations place Godot and View on the two halves of monitor `DP-1-0`, with fallback to the primary monitor. Clone destinations are fixed at `~/projects`; the workspace itself is expected at `~/workspaces/bullet_ng`.
+The tmux configurations place Godot and View on the two halves of monitor `DP-1-0`, with fallback to the primary monitor. The bagger uses `~/projects/mcap_bagger/config/recorder.yaml` and writes to `~/projects/mcap_bagger/recordings/`; App telemetry uses port 5558 at the rates in the launch-specific YAML files. Clone destinations are fixed at `~/projects`; the workspace itself is expected at `~/workspaces/bullet_ng`.
 
 ## Project Structure
 

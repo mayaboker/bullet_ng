@@ -29,6 +29,9 @@
 		},
 		{
 			"path": "../../projects/mcap_bagger"
+		},
+		{
+			"path": "../../projects/flight_lens"
 		}
 	],
 	"tasks": {
@@ -53,6 +56,16 @@
 				"problemMatcher": [],
 				"presentation": { "reveal": "always", "panel": "dedicated", "clear": false },
 				"detail": "Attach to the three-pane hover/land tmux session; Godot and View open on their selected monitors."
+			},
+			{
+				"label": "FlightLens: Open",
+				"type": "shell",
+				"command": "bash launch/run_flight_lens.sh",
+				"options": { "cwd": "${workspaceFolder:bullet_ng}" },
+				"icon": { "id": "play", "color": "terminal.ansiGreen" },
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+				"detail": "Open Flight Lens with the current project source to inspect MCAP recordings."
 			},
 			{
 				"label": "Bullet: Run hover/land mission stack",

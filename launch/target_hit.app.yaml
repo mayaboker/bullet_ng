@@ -1,0 +1,39 @@
+# SITL connections for the target-hit tmux stack.
+betaflight:
+  # MSP carries commands and board identity.
+  msp:
+    # Use the SITL TCP listener.
+    type: tcp
+    # Local MSP listener address.
+    host: 127.0.0.1
+    # Local MSP listener port.
+    port: 5761
+  # MAVLink carries vehicle telemetry.
+  mavlink:
+    # Use the SITL TCP listener.
+    type: tcp
+    # Local MAVLink endpoint.
+    endpoint: tcp:127.0.0.1:5762
+# Target-hit consumes simulator contact events.
+simulation:
+  # Enable the target-hit contact subscriber.
+  enabled: true
+  # Local contact publisher endpoint.
+  contact_endpoint: tcp://127.0.0.1:5555
+# Publish blackboard snapshots to the MCAP bagger without blocking mission steps.
+telemetry_publisher:
+  # Must match the bagger's telemetry channel endpoint.
+  endpoint: tcp://127.0.0.1:5558
+  # Per-topic publication rates in frames per second; 0 disables a topic.
+  topics:
+    telemetry/heartbeat: 1
+    telemetry/attitude: 20
+    telemetry/vfr_hud: 10
+    telemetry/gps_raw_int: 5
+    telemetry/global_position_int: 5
+    telemetry/timesync: 1
+    visual/bbox: 10
+    simulation/target_contact: 10
+    features/navigation_input: 10
+    features/navigation_result: 10
+    view/alive: 1
