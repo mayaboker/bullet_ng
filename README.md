@@ -85,6 +85,22 @@ Running `./scripts/clone_workspace.sh` without a tag only lists local `bullet_ng
 
 The tmux configurations place Godot and View on the two halves of monitor `DP-1-0`, with fallback to the primary monitor. The bagger uses `~/projects/mcap_bagger/config/recorder.yaml` and writes to `~/projects/mcap_bagger/recordings/`; App telemetry uses port 5558 at the rates in the launch-specific YAML files. The target-hit profile also records each sent MSP RC command on `control/msp_rc` for pitch analysis. Clone destinations are fixed at `~/projects`; the workspace itself is expected at `~/workspaces/bullet_ng`.
 
+### ZeroMQ port map
+
+These are the loopback endpoints used by the current mission stacks. The process in the **Binder** column owns the listening port; subscribers and request clients connect to it.
+
+| TCP port | Binder and socket | Connected clients | Data or purpose |
+| --- | --- | --- | --- |
+| **5555** | Bullet Drone launcher, PUB | Godot renderer, Bullet App (target contact), Bullet View (simulation state), MCAP Bagger | Renderer pose and camera info, flight/sensor feedback, ground truth, target contact, and `simulation/drone_1/state`. |
+| **5556** | Godot renderer, PUB | Bullet Visual, Bullet View, MCAP Bagger | `camera/front/image` descriptors; image pixels live in shared memory. |
+| **5557** | Godot renderer, PUB | Optional renderer-control consumers | Renderer control, heartbeat, and collision messages. The persistent launcher does not use this port for Simulation-tab commands. |
+| **5558** | Bullet App, PUB | MCAP Bagger | Configured blackboard telemetry, visual/navigation data, and sent MSP RC commands on `control/msp_rc`. |
+| **5559** | Not bound in these stacks | — | Legacy external-RC endpoint; no current mission-stack use. |
+| **5560** | Bullet Visual, PUB | Bullet App | Target detections on `tracking/front/bbox` in the target-hit stack; unused in hover/land. |
+| **5561** | Bullet Drone launcher, REP | Bullet View, REQ | Simulation **Start**, **Stop**, and **Reset** requests and per-request results. The current state is published separately on 5555. |
+
+MCAP Bagger subscribes to configured topics on 5555, 5556, and 5558; it does not bind those ports. The wind-control example outside these mission stacks also uses 5560 for its request service, so run it separately from Bullet Visual. Betaflight MSP (5761), Betaflight MAVLink (5762), App–View MAVLink (UDP 14550), and SITL FDM/motors (UDP 9002–9004) are not ZeroMQ connections.
+
 Both mission stacks and their separate-terminal launcher tasks disable Betaflight GPS with `launcher --no-gps`, while keeping synthetic latitude/longitude in FDM. App requests `GPS_RAW_INT` and `GLOBAL_POSITION_INT` at 2 Hz and publishes their latest blackboard values on `telemetry/gps_raw_int` and `telemetry/global_position_int`; the bagger already subscribes to both. The GPS origin is 0° latitude, 0° longitude, and 100 m MSL. Betaflight does not publish GPS telemetry while its GPS feature is disabled. Recording GPS again requires the GPS-enabled Betaflight profile.
 
 ## Project Structure

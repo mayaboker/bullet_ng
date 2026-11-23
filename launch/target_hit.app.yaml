@@ -15,6 +15,8 @@ betaflight:
     # Local MAVLink endpoint.
     endpoint: tcp:127.0.0.1:5762
 # Target-hit consumes simulator contact events.
+# Allow a fresh Bullet View to recreate a disarmed manual SITL session after reset.
+view_restart_enabled: true
 simulation:
   # Enable the target-hit contact subscriber.
   enabled: true
