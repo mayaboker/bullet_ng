@@ -16,8 +16,8 @@ This repository connects the projects for local development and simulated flight
 
 | Project | Responsibility |
 | --- | --- |
-| [bullet_drone](https://github.com/mayaboker/bullet_drone) | PyBullet physics and sensors, the simulation launcher, and Betaflight SITL integration. |
-| [bullet_render](https://github.com/mayaboker/bullet_render) | Godot scene and native ZeroMQ/shared-memory camera adapter. |
+| [bullet_drone](https://github.com/mayaboker/bullet_drone) | PyBullet / Isaac PhysX physics and sensors, the simulation launcher, and Betaflight SITL integration. |
+| [bullet_render](https://github.com/mayaboker/bullet_render) | Godot and Isaac Sim 6.2 rendering backends with ZeroMQ/shared-memory camera transport. |
 | [bullet_app](https://github.com/mayaboker/bullet_app) | Flight missions, Betaflight control, and the connection to View and target guidance. |
 | [beta_client](https://github.com/mayaboker/beta_client) | Betaflight MSP and MAVLink client code used by the App. |
 | [bullet_view](https://github.com/mayaboker/bullet_view) | MAVLink flight dashboard and operator controls. |
@@ -25,13 +25,13 @@ This repository connects the projects for local development and simulated flight
 | [los_tracking](https://github.com/mayaboker/los_tracking) | Line-of-sight guidance from bounding boxes and flight measurements. |
 | [bullet_visual](https://github.com/mayaboker/bullet_visual) | Camera ingestion, target detection, and bounding-box publication. |
 
-`bullet_drone` runs the physics loop and SITL while `bullet_render` produces camera images. `bullet_visual` applies `bullet_perception` to those images. `bullet_app` uses `beta_client` for flight I/O and `los_tracking` for its target mission; `bullet_view` displays telemetry and sends operator commands to the App.
+`bullet_drone` runs the physics loop and SITL while `bullet_render` produces camera images (via Godot or Isaac Sim). `bullet_visual` applies `bullet_perception` to those images. `bullet_app` uses `beta_client` for flight I/O and `los_tracking` for its target mission; `bullet_view` displays telemetry and sends operator commands to the App.
 
 ## Requirements
 
 **Cloning:** Bash, Git, and access to the eight GitHub repositories. The same tag must exist in this checkout of `bullet_ng` and in all eight project remotes.
 
-**Running the stack:** Follow each project's setup instructions for Python/uv, Betaflight SITL, Godot, and native build dependencies. The tmux launch tasks additionally need `tmux`, `tmuxp`, `ss`, and a graphical desktop.
+**Running the stack:** Follow each project's setup instructions for Python/uv, Betaflight SITL, Godot, and native build dependencies. For the Isaac Sim backend, install Isaac Sim 6.2 at `~/isaacsim6.2` (or set `ISAAC_SIM_DIR`). The tmux launch tasks additionally need `tmux`, `tmuxp`, `ss`, and a graphical desktop. See [QuickIsaacSim.md](QuickIsaacSim.md) for the Isaac Sim quick-start guide.
 
 ## Installation
 
