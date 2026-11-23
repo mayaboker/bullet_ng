@@ -4,6 +4,8 @@ Run the workspace task **Bullet: Run hover/land mission stack (tmux)**. It opens
 
 The App pane and the separate-terminal App tasks run [run_app_after_sitl.sh](run_app_after_sitl.sh) from this workspace. It waits up to 60 seconds for Betaflight's MSP port 5761 and MAVLink port 5762, then starts the selected manual mission from the Bullet App checkout. It uses the launch-specific [hover/land](hover_land.app.yaml) or [target-hit](target_hit.app.yaml) config. The target-hit config enables simulator contact; both enable blackboard telemetry publishing on port 5558. The simulation launcher remains in `bullet_drone`.
 
+Both stacks start the launcher with `--no-gps`, selecting the GPS-disabled Betaflight profile while still placing synthetic latitude and longitude in FDM position X/Y. App retains requests for GPS_RAW_INT and GLOBAL_POSITION_INT. App publishes each GPS topic at 2 Hz to port 5558, where the bagger's recorder config subscribes. GPS data appears only after Betaflight produces the corresponding MAVLink message.
+
 Godot opens in the top half of `DP-1-0`, and View opens in the bottom half of the same monitor. Each window fits within its half with a small margin. If that display is missing, both use the corresponding halves of the primary monitor. The terminal stays in VS Code.
 
 View reads the renderer's local camera image on ZMQ port 5556. The hover/land stack shows raw images; the target-hit stack overlays App-relayed, fid-matched detections.

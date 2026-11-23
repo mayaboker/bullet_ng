@@ -23,7 +23,7 @@ windows:
     panes:
       - shell_command:
           - source ${BULLET_NG_ROOT}/launch/setup_pane.sh hover-land-scene 'Scene / SITL / Godot'
-          - __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --render --render-monitor DP-1-0 --render-half top
+          - __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --no-gps --render --render-monitor DP-1-0 --render-half top
       - shell_command:
           - source ${BULLET_NG_ROOT}/launch/setup_pane.sh hover-land-app 'Bullet App / hover-land'
           - bash ${BULLET_NG_ROOT}/launch/run_app_after_sitl.sh hover-land

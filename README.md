@@ -10,6 +10,7 @@ This repository connects the projects for local development and simulated flight
 
 - One VS Code workspace for the eight core project repositories, `mcap_bagger`, `flight_lens`, and `bullet_ng`.
 - Hover/land and red-target mission tasks, with tmux layouts for the mission processes and MCAP recording.
+- Betaflight GPS is disabled in the mission stacks; synthetic latitude/longitude remain in FDM for testing.
 - A green **FlightLens: Open** task for inspecting recorded MCAP files.
 - A tag-based clone script that checks all project remotes before writing to `~/projects`.
 
@@ -83,6 +84,8 @@ Running `./scripts/clone_workspace.sh` without a tag only lists local `bullet_ng
 | [launch/run_flight_lens.sh](launch/run_flight_lens.sh) | Launch the current Flight Lens source with an available Python environment. |
 
 The tmux configurations place Godot and View on the two halves of monitor `DP-1-0`, with fallback to the primary monitor. The bagger uses `~/projects/mcap_bagger/config/recorder.yaml` and writes to `~/projects/mcap_bagger/recordings/`; App telemetry uses port 5558 at the rates in the launch-specific YAML files. Clone destinations are fixed at `~/projects`; the workspace itself is expected at `~/workspaces/bullet_ng`.
+
+Both mission stacks and their separate-terminal launcher tasks disable Betaflight GPS with `launcher --no-gps`, while keeping synthetic latitude/longitude in FDM. App requests `GPS_RAW_INT` and `GLOBAL_POSITION_INT` at 2 Hz and publishes their latest blackboard values on `telemetry/gps_raw_int` and `telemetry/global_position_int`; the bagger already subscribes to both. The GPS origin is 0° latitude, 0° longitude, and 100 m MSL. Betaflight does not publish GPS telemetry while its GPS feature is disabled. Recording GPS again requires the GPS-enabled Betaflight profile.
 
 ## Project Structure
 

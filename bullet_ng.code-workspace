@@ -82,7 +82,7 @@
 			{
 				"label": "Bullet hover: Scene + SITL + renderer",
 				"type": "shell",
-				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --render",
+				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --no-gps --render",
 				"options": {
 					"cwd": "${workspaceFolder:bullet_drone}",
 					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }
@@ -114,7 +114,7 @@
 			{
 				"label": "Bullet target: Scene + SITL + renderer",
 				"type": "shell",
-				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --render --target-scene",
+				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --no-gps --render --target-scene",
 				"options": {
 					"cwd": "${workspaceFolder:bullet_drone}",
 					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }

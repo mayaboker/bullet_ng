@@ -27,8 +27,8 @@ telemetry_publisher:
     telemetry/heartbeat: 1
     telemetry/attitude: 20
     telemetry/vfr_hud: 10
-    telemetry/gps_raw_int: 5
-    telemetry/global_position_int: 5
+    telemetry/gps_raw_int: 2  # Record GPS_RAW_INT at 2 samples/s; 0 disables it.
+    telemetry/global_position_int: 2  # Record GLOBAL_POSITION_INT at 2 samples/s; 0 disables it.
     telemetry/timesync: 1
     visual/bbox: 0
     simulation/target_contact: 0
