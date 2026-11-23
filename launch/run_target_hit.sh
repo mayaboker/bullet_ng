@@ -2,6 +2,7 @@
 set -euo pipefail
 
 launch_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+export BULLET_NG_ROOT=$(cd -- "$launch_dir/.." && pwd)
 export BULLET_DRONE_ROOT=$(cd -- "$launch_dir/../../../projects/bullet_drone" && pwd)
 socket_name=bullet-target-hit
 session_name=bullet-target-hit

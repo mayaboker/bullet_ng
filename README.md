@@ -59,7 +59,7 @@ Open `bullet_ng.code-workspace` in VS Code after cloning and installing the proj
 
 ## Usage
 
-Run **Bullet: Run target-hit mission stack (tmux)** for the red-target workflow. It adds Bullet Visual to the simulator, App, and View processes. See [launch/README.md](launch/README.md) for monitor layout, detach, and shutdown instructions. The workspace also has tasks that open each process in a separate VS Code terminal.
+Run **Bullet: Run target-hit mission stack (tmux)** for the red-target workflow. It adds Bullet Visual to the simulator, App, and View processes. Each tmux pane has a labeled header, separate scrollback, and its own command history; after `Ctrl+C`, press `Up` and `Enter` to rerun that pane's command. See [launch/README.md](launch/README.md) for monitor layout, history, detach, and shutdown instructions. The workspace also has tasks that open each process in a separate VS Code terminal.
 
 Running `./scripts/clone_workspace.sh` without a tag only lists local `bullet_ng` tags and makes no filesystem changes. Running it with a tag verifies all remotes and destinations before cloning. It creates `~/projects` when needed and leaves the `bullet_ng` checkout alone.
 
@@ -88,6 +88,8 @@ The `bullet_drone_plan` and `bullet_drone_external_render` folders are retained 
 ## Development
 
 Edit and build each project in its own repository under `~/projects`; `bullet_ng` has no root Python package or build. Use the project READMEs for dependency installation and development commands. Update `bullet_ng.code-workspace` and the clone script together when the workspace project list changes.
+
+Bullet App creates one `bullet_app_<timestamp>.log` file per run in [`logs/`](logs/). The terminal shows INFO events; the file also contains 5 Hz DEBUG checkpoints during target search and tracking. Logs are local, ignored by Git, and retained until you remove them. App stops before flight if it cannot create the log file.
 
 ## Testing
 
