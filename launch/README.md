@@ -22,4 +22,8 @@ Press `Ctrl+b`, then `d` to detach. Running the task again reattaches to the sam
 
 Run **Bullet: Run target-hit mission stack (tmux)** to open a separate `bullet-target-hit` session with a four-pane mission window (target-enabled Scene/SITL/Godot, Bullet Visual with `zmq.yaml`, the manual `target-hit` App, and Bullet View) plus its own `mcap-bagger` window. The simulator and View keep the same top/bottom monitor split. Arm and start the mission from View.
 
+The launcher reads [target_hit.scene.yaml](target_hit.scene.yaml) for the drone's starting pose. `initial_position_m: [0, 0, 0.015]` keeps it at the original world X/Y location; `initial_yaw_deg: 90` turns it in place. Edit the yaw and restart the scene pane or stack to use a different heading. The truck remains at world X=50, Y=0.
+
+At this origin position, 90° points the camera toward world +Y, away from the truck at +X. The target detector will not see the truck until the drone turns toward it; use 0° to face it from the origin.
+
 The target stack uses the same pane headers, independent histories, and scrollback controls. Detach with `Ctrl+b`, then `d`; rerunning the task reattaches. To stop the target stack, stop its bagger with `Ctrl+C`, interrupt each mission pane, then run `tmux -L bullet-target-hit kill-session -t bullet-target-hit` if needed. The launcher checks the Visual port along with the SITL, renderer, and View ports before creating a session.
