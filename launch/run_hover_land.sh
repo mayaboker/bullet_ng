@@ -18,6 +18,11 @@ if tmux -L "$socket_name" has-session -t "$session_name" 2>/dev/null; then
     exec tmux -L "$socket_name" attach-session -t "$session_name"
 fi
 
+if [[ ! -f "$BULLET_NG_ROOT/../../projects/mcap_bagger/config/recorder.yaml" ]]; then
+    echo 'Missing mcap_bagger/config/recorder.yaml in ~/projects/mcap_bagger' >&2
+    exit 1
+fi
+
 if [[ -z ${DISPLAY:-} ]]; then
     echo 'DISPLAY is unset; start this task from the graphical desktop.' >&2
     exit 1

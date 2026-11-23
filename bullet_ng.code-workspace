@@ -26,6 +26,12 @@
 		},
 		{
 			"path": "../../projects/bullet_visual"
+		},
+		{
+			"path": "../../projects/mcap_bagger"
+		},
+		{
+			"path": "../../projects/flight_lens"
 		}
 	],
 	"tasks": {
@@ -52,6 +58,16 @@
 				"detail": "Attach to the three-pane hover/land tmux session; Godot and View open on their selected monitors."
 			},
 			{
+				"label": "FlightLens: Open",
+				"type": "shell",
+				"command": "bash launch/run_flight_lens.sh",
+				"options": { "cwd": "${workspaceFolder:bullet_ng}" },
+				"icon": { "id": "play", "color": "terminal.ansiGreen" },
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+				"detail": "Open Flight Lens with the current project source to inspect MCAP recordings."
+			},
+			{
 				"label": "Bullet: Run hover/land mission stack",
 				"icon": { "id": "play", "color": "terminal.ansiYellow" },
 				"dependsOn": [
@@ -66,7 +82,7 @@
 			{
 				"label": "Bullet hover: Scene + SITL + renderer",
 				"type": "shell",
-				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --render",
+				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --no-gps --render",
 				"options": {
 					"cwd": "${workspaceFolder:bullet_drone}",
 					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }
@@ -77,8 +93,8 @@
 			{
 				"label": "Bullet hover: App (manual approval)",
 				"type": "shell",
-				"command": "bash tools/run_app_after_sitl.sh hover-land",
-				"options": { "cwd": "${workspaceFolder:bullet_drone}" },
+				"command": "bash launch/run_app_after_sitl.sh hover-land",
+				"options": { "cwd": "${workspaceFolder:bullet_ng}" },
 				"problemMatcher": [],
 				"presentation": { "reveal": "always", "panel": "new", "clear": true }
 			},
@@ -98,7 +114,7 @@
 			{
 				"label": "Bullet target: Scene + SITL + renderer",
 				"type": "shell",
-				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --render --target-scene",
+				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --no-gps --render --target-scene",
 				"options": {
 					"cwd": "${workspaceFolder:bullet_drone}",
 					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }
@@ -117,8 +133,8 @@
 			{
 				"label": "Bullet target: App (target-hit)",
 				"type": "shell",
-				"command": "bash tools/run_app_after_sitl.sh target-hit",
-				"options": { "cwd": "${workspaceFolder:bullet_drone}" },
+				"command": "bash launch/run_app_after_sitl.sh target-hit",
+				"options": { "cwd": "${workspaceFolder:bullet_ng}" },
 				"problemMatcher": [],
 				"presentation": { "reveal": "always", "panel": "new", "clear": true }
 			},
