@@ -1,47 +1,66 @@
-# Release Log — alice branch (changes from 0.1-alpha)
+# Release Log — alice branch
 
-## bullet_drone
+## 0.2-alice (changes from 0.1-alice)
 
-2 commits, 9 files changed, +724 / -18 lines.
+### bullet_drone
+- `tools/isaacSimKillAll.bash`: narrowed `omni\.` pattern to `omni\.kit` to
+  stop killing Firefox (Firefox uses `-greomni`/`-appomni` flags with omni.ja).
 
-### New files
+### bullet_render
+- `isaac/world_presets.json`: aligned spawn Y with truck Y (-26.666) for
+  straight-ahead approach in rivermark.usd. Raised spawn Z to 10.0 to clear
+  terrain at the new position.
 
-- `src/bullet_drone/isaac_physics.py` (388 lines)
-  Isaac PhysX physics backend. Mirrors PyBulletPhysics interface (reset, step,
-  hold, close, raycasting). Lazy-inits a shared headless SimulationApp, builds
-  a USD stage with physics scene, ground plane, and rigid-body drone. Applies
-  body-frame forces rotated to world frame via quaternion. Reads state from USD
-  prim attributes. target_contact/terrain_contact stubbed to False.
+### bullet_app
+- Merged bob branch (20 commits): mission control refactor with blackboard
+  pattern, StepContext, telemetry publisher, YAML config, Action/Mode enums,
+  tracking logs, colored terminal logs, GPS MAVLink streams, target height
+  raised to 20m, msgpack dependency.
+- `src/bullet_app/missions/target_hit.py`: re-applied attitude_at fix on top
+  of bob's blackboard code. TIMESYNC offset mapping produced negative ages
+  (-106ms) with Isaac Sim, rejecting 100% of attitudes. Uses sample.attitude_at
+  instead.
 
-- `src/launcher/isaac_renderer.py` (136 lines)
-  Isaac Sim renderer process manager. Launches python.sh with the
-  bullet_render isaac/main.py script. Manages ZMQ image transport and
-  shared-memory frame reading. Waits for first rendered frame before
-  declaring ready.
+### beta_client
+- Merged bob branch (1 commit): MSP board identity request.
 
-- `src/launcher/__main__.py` (3 lines)
-  Enables `python -m launcher` entry point.
+### bullet_view
+- Merged bob branch (9 commits): MAVLink flight protocol, parameter catalog,
+  SITL/HW status, target altitude slider, telemetry stale status. Removed
+  recording controls and bullet-msgs dependency.
 
-- `tools/isaacSimKillAll.bash`
-  Kill script for all Isaac stack processes (Isaac Sim, SITL, bullet_visual,
-  launcher).
+### los_tracking
+- Merged relax branch: relaxed tuning for Isaac Sim latency
+  (max_attitude_age_s 0.2→0.5, recovery_timeout_s 1.0→2.0,
+  max_los_deviation_deg 12→20, and others).
 
-### Modified files
+### bullet_ng
+- Merged bob branch: tmux pane labels with separate command histories,
+  bullet_app log ignore rules.
 
-- `src/launcher/cli.py`
-  Added CLI options: --renderer-backend (godot|isaac), --physics-backend
-  (pybullet|isaac), --isaac-headless, --world.
+### Known limitations
+- target_contact() stubbed to False in Isaac physics — truck hit detection
+  not yet implemented for the Isaac backend.
 
-- `src/launcher/main.py`
-  Conditional import of IsaacRenderer/IsaacPhysics based on backend choice.
+## 0.1-alice (changes from 0.1-alpha)
 
-- `tools/run_target_scene.sh`
-  Added --isaac, --isaac-physics, --isaac-headless, --world flags.
-  Auto-detects SITL binary. Launches via python.sh when using Isaac physics.
+### bullet_drone
+- Isaac PhysX physics backend (`isaac_physics.py`), Isaac renderer process
+  manager (`isaac_renderer.py`), CLI options for backend selection, shell
+  wrappers, kill script, SHM host capture timestamp.
 
-- `tools/run_app_after_sitl.sh`
-  File mode change (644 → 755).
+### bullet_render
+- Isaac Sim 6.2 render-only backend: camera, scene builder, truck scenario,
+  ZMQ+SHM transport, surface queries, world presets. Five test modules.
+  check_truck_color.py tool. Updated README and pyproject.toml.
 
-- `libs/bullet_image_transport/src/bullet_image_transport/shm.py`
-  Added optional host_capture_ns parameter to FrameWriter.write() for
-  host-side capture timestamp passthrough from Isaac renderer.
+### bullet_app
+- Attitude timestamp fix using sample.attitude_at (superseded by bob merge
+  + re-applied fix in 0.2-alice).
+
+### bullet_view
+- quick_view.py minimal SHM image viewer. Fixed bullet-msgs source path
+  (superseded by bob's removal in 0.2-alice).
+
+### bullet_ng
+- QuickIsaacSim.md quick-start guide, updated README with Isaac Sim.

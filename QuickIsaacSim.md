@@ -4,17 +4,17 @@
 
 Base commits before Isaac Sim integration changes.
 
-| Repository         | Commit    | 0.1-alice |
-|--------------------|-----------|-----------|
-| bullet_ng          | 1eaedba   | *         |
-| bullet_drone       | 2405ebf   | *         |
-| bullet_render      | 359868b   | *         |
-| bullet_app         | 6741a1c   | *         |
-| beta_client        | f7849e4   |           |
-| bullet_view        | 3a57335   | *         |
-| bullet_perception  | 37acc3f   |           |
-| los_tracking       | 069f3b8   |           |
-| bullet_visual      | 542f74e   |           |
+| Repository         | Commit    | 0.1-alice | 0.2-alice |
+|--------------------|-----------|-----------|-----------|
+| bullet_ng          | 1eaedba   | *         | *         |
+| bullet_drone       | 2405ebf   | *         | *         |
+| bullet_render      | 359868b   | *         | *         |
+| bullet_app         | 6741a1c   | *         | *         |
+| beta_client        | f7849e4   |           | *         |
+| bullet_view        | 3a57335   | *         | *         |
+| bullet_perception  | 37acc3f   |           |           |
+| los_tracking       | 069f3b8   |           | *         |
+| bullet_visual      | 542f74e   |           |           |
 
 ## How to run
 
