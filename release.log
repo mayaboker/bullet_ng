@@ -2,6 +2,14 @@
 
 ## 0.2-alice (changes from 0.1-alice)
 
+Summary of what's in this release:
+
+- Attitude fix (bullet_app): sample.attitude_at instead of broken TIMESYNC mapping
+- Relaxed tuning (los_tracking): wider tolerances for Isaac Sim latency
+- Spawn geometry (bullet_render): truck straight ahead in rivermark.usd
+- Firefox fix (bullet_drone): omni\.kit pattern in kill script
+- Bob merge (bullet_app, bullet_view, beta_client, bullet_ng): mission refactor, flight protocol, status display
+
 ### bullet_drone
 - `tools/isaacSimKillAll.bash`: narrowed `omni\.` pattern to `omni\.kit` to
   stop killing Firefox (Firefox uses `-greomni`/`-appomni` flags with omni.ja).
