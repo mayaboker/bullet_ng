@@ -61,8 +61,8 @@ tools/run_target_scene.sh --isaac-physics --world ~/ov/rivermark.usd
 ### Terminal #2 — App (after SITL is ready)
 
 ```bash
-cd ~/projects/bullet_drone
-bash tools/run_app_after_sitl.sh target-hit
+cd ~/workspaces/bullet_ng
+bash launch/run_app_after_sitl.sh target-hit
 ```
 
 ### Terminal #3 — View (arm & start)
