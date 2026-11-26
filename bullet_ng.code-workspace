@@ -145,6 +145,109 @@
 				"options": { "cwd": "${workspaceFolder:bullet_drone}" },
 				"problemMatcher": [],
 				"presentation": { "reveal": "always", "panel": "new", "clear": true }
+			},
+			{
+				"label": "Isaac Sim: Run hover/land mission stack",
+				"icon": { "id": "play", "color": "terminal.ansiCyan" },
+				"dependsOn": [
+					"Isaac hover: Scene + SITL + renderer",
+					"Bullet hover: App (manual approval)",
+					"Bullet: View"
+				],
+				"dependsOrder": "parallel",
+				"problemMatcher": [],
+				"detail": "Hover/land with Isaac Sim renderer + PyBullet physics; Arm and Start from View."
+			},
+			{
+				"label": "Isaac hover: Scene + SITL + renderer",
+				"type": "shell",
+				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --no-gps --render --renderer-backend isaac --render-config external_render/configs/physics.json",
+				"options": {
+					"cwd": "${workspaceFolder:bullet_drone}",
+					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }
+				},
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "new", "clear": true }
+			},
+			{
+				"label": "Isaac Sim: Run hover/land headless",
+				"icon": { "id": "play", "color": "terminal.ansiCyan" },
+				"dependsOn": [
+					"Isaac hover headless: Scene + SITL + renderer",
+					"Bullet hover: App (manual approval)",
+					"Bullet: View"
+				],
+				"dependsOrder": "parallel",
+				"problemMatcher": [],
+				"detail": "Hover/land with headless Isaac Sim renderer (no Isaac GUI); Arm and Start from View."
+			},
+			{
+				"label": "Isaac hover headless: Scene + SITL + renderer",
+				"type": "shell",
+				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --no-gps --render --renderer-backend isaac --render-config external_render/configs/physics.json --isaac-headless",
+				"options": {
+					"cwd": "${workspaceFolder:bullet_drone}",
+					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }
+				},
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "new", "clear": true }
+			},
+			{
+				"label": "Isaac Sim: Run target-hit mission stack",
+				"icon": { "id": "play", "color": "terminal.ansiCyan" },
+				"dependsOn": [
+					"Isaac target: Scene + SITL + renderer",
+					"Bullet target: Visual",
+					"Bullet target: App (target-hit)",
+					"Bullet: View"
+				],
+				"dependsOrder": "parallel",
+				"problemMatcher": [],
+				"detail": "Target-hit with Isaac Sim renderer + PyBullet physics; Arm and Start from View."
+			},
+			{
+				"label": "Isaac target: Scene + SITL + renderer",
+				"type": "shell",
+				"command": "uv run --frozen --extra render --extra sitl --extra mavlink launcher --sitl --no-gps --render --renderer-backend isaac --render-config external_render/configs/physics.json --target-scene",
+				"options": {
+					"cwd": "${workspaceFolder:bullet_drone}",
+					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }
+				},
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "new", "clear": true }
+			},
+			{
+				"label": "Isaac Sim: Scene only (no SITL, with GUI)",
+				"type": "shell",
+				"command": "uv run --frozen --extra render launcher --no-sitl --renderer-backend isaac --render-config external_render/configs/physics.json",
+				"options": {
+					"cwd": "${workspaceFolder:bullet_drone}",
+					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }
+				},
+				"icon": { "id": "eye", "color": "terminal.ansiCyan" },
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "new", "clear": true },
+				"detail": "Isaac Sim renderer with PyBullet physics, no SITL or flight control. Useful for scene inspection."
+			},
+			{
+				"label": "Isaac Sim: Scene with USD world",
+				"type": "shell",
+				"command": "uv run --frozen --extra render launcher --no-sitl --renderer-backend isaac --render-config external_render/configs/physics.json --world ${input:usdWorldPath}",
+				"options": {
+					"cwd": "${workspaceFolder:bullet_drone}",
+					"env": { "__NV_PRIME_RENDER_OFFLOAD": "1", "__GLX_VENDOR_LIBRARY_NAME": "nvidia" }
+				},
+				"icon": { "id": "globe", "color": "terminal.ansiCyan" },
+				"problemMatcher": [],
+				"presentation": { "reveal": "always", "panel": "new", "clear": true },
+				"detail": "Isaac Sim renderer with a custom USD world file (no SITL)."
+			}
+		],
+		"inputs": [
+			{
+				"id": "usdWorldPath",
+				"type": "promptString",
+				"description": "Path to USD world file (e.g. ~/ov/rivermark.usd)"
 			}
 		]
 	}
